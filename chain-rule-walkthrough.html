@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chain Rule Walkthrough — Backpropagation</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --card: #111827;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --dim: #475569;
+    --cyan: #22d3ee;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+    --green: #34d399;
+    --orange: #fb923c;
+    --red: #ef4444;
+    --indigo: #6366f1;
+    --yellow: #fbbf24;
+    --font: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    --display: 'Instrument Serif', Georgia, serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-size: 2rem;
+    font-weight: 400;
+    background: linear-gradient(135deg, var(--orange), var(--yellow), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 620px;
+    overflow: hidden;
+  }
+
+  .step-card {
+    border-radius: 12px;
+    padding: 18px 24px;
+  }
+
+  .step-title {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 12px;
+    transition: color 0.3s;
+  }
+
+  .step-content {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+
+  .math-box {
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
+    margin: 10px 0;
+  }
+
+  .math-label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .math-result {
+    font-size: 1rem;
+  }
+
+  .note {
+    font-size: 0.78rem;
+    color: var(--dim);
+    margin-top: 10px;
+  }
+
+  .num-box {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .num-box-label {
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+
+  .num-box-value {
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font);
+    transition: all 0.4s ease;
+  }
+
+  .num-box-value.small {
+    font-size: 0.85rem;
+  }
+
+  .values-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin: 8px 0;
+  }
+
+  .chain-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 1rem;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.78rem;
+    font-family: var(--font);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+  }
+
+  .btn:disabled {
+    background: #1e293b !important;
+    color: var(--dim);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .btn-reset { background: #334155; }
+  .btn-back { background: #475569; }
+  .btn-play { background: #059669; }
+  .btn-play.playing { background: #dc2626; }
+  .btn-next { background: #4f46e5; }
+
+  .progress {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    gap: 3px;
+  }
+
+  .progress-seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .summary {
+    border-radius: 10px;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+
+  svg text {
+    font-family: var(--font);
+  }
+
+  line, circle {
+    transition: all 0.4s;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { r: 29; opacity: 0.25; }
+    50% { r: 35; opacity: 0.1; }
+  }
+</style>
+</head>
+<body>
+
+<div style="text-align: center">
+  <h1>Chain Rule Walkthrough</h1>
+  <p class="subtitle">Tracing one weight through forward pass → loss → backprop → update</p>
+</div>
+
+<!-- Computation Graph SVG -->
+<div class="card" id="graph-card">
+  <svg id="graph" viewBox="0 0 590 170" style="width:100%;display:block">
+    <defs>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="4" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+  </svg>
+</div>
+
+<!-- Step Info -->
+<div class="card step-card" id="step-card">
+  <div class="step-title" id="step-title"></div>
+  <div class="step-content" id="step-content"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn btn-reset" onclick="resetAnim()">↺ Reset</button>
+  <button class="btn btn-back" id="btn-back" onclick="goBack()">← Back</button>
+  <button class="btn btn-play" id="btn-play" onclick="togglePlay()">▶ Play</button>
+  <button class="btn btn-next" id="btn-next" onclick="goNext()">Next →</button>
+</div>
+
+<!-- Progress -->
+<div class="progress" id="progress"></div>
+
+<!-- Summary -->
+<div class="card summary" id="summary"></div>
+
+<script>
+// ─── Constants ───
+const sigmoid = x => 1 / (1 + Math.exp(-x));
+const sigmoidDeriv = a => a * (1 - a);
+
+const NET = { a_i: 0.8, w_ij: 0.5, b_j: 0.1, other: 0.3, target: 0.9 };
+const z_j = NET.w_ij * NET.a_i + NET.other + NET.b_j;
+const a_j = sigmoid(z_j);
+const loss = 0.5 * (a_j - NET.target) ** 2;
+const dL_da = a_j - NET.target;
+const da_dz = sigmoidDeriv(a_j);
+const dz_dw = NET.a_i;
+const dL_dw = dL_da * da_dz * dz_dw;
+const LR = 0.5;
+const w_new = NET.w_ij - LR * dL_dw;
+
+const C = {
+  bg:"#0a0e1a", card:"#111827", border:"#1e293b", text:"#e2e8f0",
+  muted:"#94a3b8", dim:"#475569", cyan:"#22d3ee", purple:"#a78bfa",
+  pink:"#f472b6", green:"#34d399", orange:"#fb923c", red:"#ef4444",
+  indigo:"#6366f1", yellow:"#fbbf24"
+};
+
+const NODES = [
+  { id:"ai",  x:60,  y:100, label:"aᵢ",  sub:NET.a_i.toFixed(1),   color:C.cyan },
+  { id:"wij", x:165, y:50,  label:"wᵢⱼ", sub:NET.w_ij.toFixed(1),  color:C.indigo },
+  { id:"zj",  x:270, y:100, label:"zⱼ",   sub:z_j.toFixed(2),       color:C.purple },
+  { id:"aj",  x:400, y:100, label:"aⱼ",   sub:a_j.toFixed(3),       color:C.green },
+  { id:"L",   x:530, y:100, label:"L",    sub:loss.toFixed(4),      color:C.red },
+];
+const nodeMap = {};
+NODES.forEach(n => nodeMap[n.id] = n);
+
+const EDGES = [
+  { from:"ai",  to:"zj", label:"× wᵢⱼ" },
+  { from:"wij", to:"zj", label:"" },
+  { from:"zj",  to:"aj", label:"σ(·)" },
+  { from:"aj",  to:"L",  label:"MSE" },
+];
+
+const STEPS = [
+  { key:"overview",  title:"The Setup",                                             hl:"all" },
+  { key:"forward_z", title:"Step 1: Compute Weighted Sum (zⱼ)",                     hl:"z" },
+  { key:"forward_a", title:"Step 2: Apply Activation (aⱼ)",                         hl:"a" },
+  { key:"loss",      title:"Step 3: Compute Loss",                                  hl:"loss" },
+  { key:"dL_da",     title:"Step 4: ∂L/∂aⱼ — How does loss change with activation?",hl:"dL_da" },
+  { key:"da_dz",     title:"Step 5: ∂aⱼ/∂zⱼ — How does activation change with z?", hl:"da_dz" },
+  { key:"dz_dw",     title:"Step 6: ∂zⱼ/∂wᵢⱼ — How does z change with this weight?",hl:"dz_dw" },
+  { key:"chain",     title:"Step 7: Multiply — The Chain Rule",                     hl:"chain" },
+  { key:"update",    title:"Step 8: Update the Weight",                             hl:"update" },
+];
+
+let step = 0;
+let playing = false;
+let playTimer = null;
+
+// ─── SVG Rendering ───
+function buildGraph() {
+  const svg = document.getElementById('graph');
+  svg.innerHTML = `<defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="4" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+
+  const hl = STEPS[step].hl;
+  const key = STEPS[step].key;
+  const isForward = ["overview","forward_z","forward_a","loss"].includes(key);
+  const isBack = ["dL_da","da_dz","dz_dw","chain","update"].includes(key);
+
+  function nodeActive(id) {
+    if (hl==="all"||hl==="chain"||hl==="update") return true;
+    if (hl==="z" && (id==="ai"||id==="wij"||id==="zj")) return true;
+    if (hl==="a" && (id==="zj"||id==="aj")) return true;
+    if (hl==="loss" && (id==="aj"||id==="L")) return true;
+    if (hl==="dL_da" && (id==="aj"||id==="L")) return true;
+    if (hl==="da_dz" && (id==="zj"||id==="aj")) return true;
+    if (hl==="dz_dw" && (id==="ai"||id==="wij"||id==="zj")) return true;
+    return false;
+  }
+
+  function edgeState(from, to) {
+    if (hl==="all"||hl==="chain"||hl==="update") return "neutral";
+    if (hl==="z" && to==="zj") return "forward";
+    if (hl==="a" && from==="zj" && to==="aj") return "forward";
+    if (hl==="loss" && from==="aj" && to==="L") return "forward";
+    if (hl==="dL_da" && from==="aj" && to==="L") return "backward";
+    if (hl==="da_dz" && from==="zj" && to==="aj") return "backward";
+    if (hl==="dz_dw" && to==="zj") return "backward";
+    return "dim";
+  }
+
+  // Draw edges
+  EDGES.forEach(e => {
+    const f = nodeMap[e.from], t = nodeMap[e.to];
+    const st = edgeState(e.from, e.to);
+    const col = st==="forward"?C.green : st==="backward"?C.orange : st==="neutral"?C.dim : C.dim+"40";
+    const w = st==="dim" ? 1 : 2;
+    const op = st==="dim" ? 0.3 : 0.8;
+
+    const line = svgEl('line',{x1:f.x,y1:f.y,x2:t.x,y2:t.y,stroke:col,'stroke-width':w,opacity:op});
+    svg.appendChild(line);
+
+    // Edge label
+    if (e.label && st !== "dim") {
+      const mx = (f.x+t.x)/2, my = e.from==="wij" ? 70 : (f.y+t.y)/2 - 14;
+      const txt = svgEl('text',{x:mx,y:my,'text-anchor':'middle',fill:col,'font-size':9,opacity:0.8});
+      txt.textContent = e.label;
+      svg.appendChild(txt);
+    }
+
+    // Animated particle
+    if (st === "forward" || st === "backward") {
+      const particle = svgEl('circle',{r:3,fill:st==="forward"?C.green:C.orange,opacity:0.9,filter:'url(#glow)'});
+      const path = st==="backward"
+        ? `M${t.x},${t.y} L${f.x},${f.y}`
+        : `M${f.x},${f.y} L${t.x},${t.y}`;
+      const anim = svgEl('animateMotion',{dur:'1s',repeatCount:'indefinite',path:path});
+      particle.appendChild(anim);
+      svg.appendChild(particle);
+    }
+  });
+
+  // Draw nodes
+  NODES.forEach(n => {
+    const active = nodeActive(n.id);
+    const r = 24;
+
+    // Glow ring
+    if (active) {
+      const ring = svgEl('circle',{cx:n.x,cy:n.y,r:r+8,fill:'none',stroke:n.color,'stroke-width':1.5,opacity:0.25});
+      const a1 = svgEl('animate',{attributeName:'r',values:`${r+5};${r+11};${r+5}`,dur:'1.8s',repeatCount:'indefinite'});
+      const a2 = svgEl('animate',{attributeName:'opacity',values:'0.25;0.1;0.25',dur:'1.8s',repeatCount:'indefinite'});
+      ring.appendChild(a1);
+      ring.appendChild(a2);
+      svg.appendChild(ring);
+    }
+
+    // Main circle
+    const circle = svgEl('circle',{cx:n.x,cy:n.y,r:r,fill:C.bg,stroke:n.color,
+      'stroke-width':active?2.5:1.5, opacity:active?1:0.5});
+    svg.appendChild(circle);
+
+    // Label
+    const label = svgEl('text',{x:n.x,y:n.y-5,'text-anchor':'middle','dominant-baseline':'middle',
+      fill:n.color,'font-size':12,'font-weight':500});
+    label.textContent = n.label;
+    svg.appendChild(label);
+
+    // Sub value
+    const sub = svgEl('text',{x:n.x,y:n.y+10,'text-anchor':'middle','dominant-baseline':'middle',
+      fill:C.muted,'font-size':9});
+    sub.textContent = n.sub;
+    svg.appendChild(sub);
+  });
+
+  // Direction label
+  if (isForward && step > 0) {
+    const t = svgEl('text',{x:295,y:160,'text-anchor':'middle',fill:C.green,'font-size':10,opacity:0.6});
+    t.textContent = '→ Forward →';
+    svg.appendChild(t);
+  }
+  if (isBack) {
+    const t = svgEl('text',{x:295,y:160,'text-anchor':'middle',fill:C.orange,'font-size':10,opacity:0.6});
+    t.textContent = '← Backward ←';
+    svg.appendChild(t);
+  }
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k,v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+// ─── Step Content ───
+function numBox(label, value, color, opts={}) {
+  const small = opts.small || false;
+  const glow = opts.glow || false;
+  const v = typeof value === 'number' ? value.toFixed(4) : value;
+  return `<div class="num-box">
+    <span class="num-box-label">${label}</span>
+    <span class="num-box-value${small?' small':''}" style="background:${color}15;border:1.5px solid ${color};color:${color};${glow?`box-shadow:0 0 12px ${color}40`:''}">${v}</span>
+  </div>`;
+}
+
+function mathBox(color, labelHtml, resultHtml) {
+  return `<div class="math-box" style="background:${color}10;border:1px solid ${color}30">
+    <div class="math-label">${labelHtml}</div>
+    <div class="math-result" style="color:${color}">${resultHtml}</div>
+  </div>`;
+}
+
+function renderStep() {
+  const s = STEPS[step];
+  const key = s.key;
+  const isBack = ["dL_da","da_dz","dz_dw","chain","update"].includes(key);
+
+  const titleEl = document.getElementById('step-title');
+  titleEl.textContent = s.title;
+  titleEl.style.color = isBack ? C.orange : key==="update" ? C.green : C.text;
+
+  const content = document.getElementById('step-content');
+
+  switch(key) {
+    case "overview":
+      content.innerHTML = `
+        <p style="margin:0 0 12px">We'll trace one weight through the entire forward and backward pass with real numbers.</p>
+        <div class="values-row">
+          ${numBox("Input aᵢ", NET.a_i, C.cyan)}
+          ${numBox("Weight wᵢⱼ", NET.w_ij, C.indigo)}
+          ${numBox("Bias bⱼ", NET.b_j, C.dim)}
+          ${numBox("Target", NET.target, C.pink)}
+        </div>
+        <p class="note" style="text-align:center">Other inputs to neuron j contribute ${NET.other} to the weighted sum.</p>`;
+      break;
+
+    case "forward_z":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">Neuron j computes its weighted sum from all incoming connections:</p>
+        ${mathBox(C.purple,
+          `z<sub>j</sub> = w<sub>ij</sub> · a<sub>i</sub> + (other inputs) + b<sub>j</sub>`,
+          `z<sub>j</sub> = ${NET.w_ij} × ${NET.a_i} + ${NET.other} + ${NET.b_j} = <strong>${z_j.toFixed(4)}</strong>`
+        )}
+        <p class="note">This is just a linear combination — without an activation function, this is all the neuron could do.</p>`;
+      break;
+
+    case "forward_a":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">Now we squash z<sub>j</sub> through the sigmoid activation:</p>
+        ${mathBox(C.green,
+          `a<sub>j</sub> = σ(z<sub>j</sub>) = 1 / (1 + e<sup>−z</sup>)`,
+          `a<sub>j</sub> = σ(${z_j.toFixed(4)}) = <strong>${a_j.toFixed(4)}</strong>`
+        )}
+        <p class="note">Sigmoid maps any value to (0, 1). This is the nonlinearity that gives hidden layers their power.</p>`;
+      break;
+
+    case "loss":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">How far off is our prediction? Using MSE loss:</p>
+        ${mathBox(C.red,
+          `L = ½(a<sub>j</sub> − target)²`,
+          `L = ½(${a_j.toFixed(4)} − ${NET.target})² = <strong>${loss.toFixed(4)}</strong>`
+        )}
+        <p class="note">Now we need to figure out: how should we change w<sub>ij</sub> to make this loss smaller?</p>`;
+      break;
+
+    case "dL_da":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">Starting from the loss, how sensitive is it to neuron j's output?</p>
+        ${mathBox(C.orange,
+          `∂L/∂a<sub>j</sub> = a<sub>j</sub> − target`,
+          `∂L/∂a<sub>j</sub> = ${a_j.toFixed(4)} − ${NET.target} = <strong>${dL_da.toFixed(4)}</strong>`
+        )}
+        <p class="note">Negative value → our prediction was too low → we need to increase a<sub>j</sub> to reduce loss.</p>`;
+      break;
+
+    case "da_dz":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">How sensitive is the activation to changes in the pre-activation z?</p>
+        ${mathBox(C.yellow,
+          `∂a<sub>j</sub>/∂z<sub>j</sub> = σ(z) · (1 − σ(z)) = a<sub>j</sub> · (1 − a<sub>j</sub>)`,
+          `∂a<sub>j</sub>/∂z<sub>j</sub> = ${a_j.toFixed(4)} × (1 − ${a_j.toFixed(4)}) = <strong>${da_dz.toFixed(4)}</strong>`
+        )}
+        <p class="note">This is the sigmoid's derivative. Notice: at extreme values (near 0 or 1), this approaches 0 — the vanishing gradient problem.</p>`;
+      break;
+
+    case "dz_dw":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">How sensitive is the weighted sum to this specific weight?</p>
+        ${mathBox(C.cyan,
+          `z<sub>j</sub> = w<sub>ij</sub> · a<sub>i</sub> + ... &nbsp; → &nbsp; ∂z<sub>j</sub>/∂w<sub>ij</sub> = a<sub>i</sub>`,
+          `∂z<sub>j</sub>/∂w<sub>ij</sub> = a<sub>i</sub> = <strong>${dz_dw.toFixed(4)}</strong>`
+        )}
+        <p class="note">It's just the input activation! The gradient of a weight is always the upstream neuron's value times the downstream error.</p>`;
+      break;
+
+    case "chain":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">Now multiply all three terms together:</p>
+        <div class="math-box" style="background:${C.indigo}10;border:1px solid ${C.indigo}30">
+          <div class="math-label">
+            ∂L/∂w<sub>ij</sub> = <span style="color:${C.orange}">∂L/∂a<sub>j</sub></span> · <span style="color:${C.yellow}">∂a<sub>j</sub>/∂z<sub>j</sub></span> · <span style="color:${C.cyan}">∂z<sub>j</sub>/∂w<sub>ij</sub></span>
+          </div>
+          <div class="chain-row">
+            <span style="color:${C.orange}">${dL_da.toFixed(4)}</span>
+            <span style="color:${C.dim}">×</span>
+            <span style="color:${C.yellow}">${da_dz.toFixed(4)}</span>
+            <span style="color:${C.dim}">×</span>
+            <span style="color:${C.cyan}">${dz_dw.toFixed(4)}</span>
+            <span style="color:${C.dim}">=</span>
+            <span style="color:${C.indigo};font-weight:700;font-size:1.1rem">${dL_dw.toFixed(4)}</span>
+          </div>
+        </div>
+        <p class="note">This gradient tells us: nudging w<sub>ij</sub> up slightly will change the loss by ≈ ${dL_dw.toFixed(4)}.</p>`;
+      break;
+
+    case "update":
+      content.innerHTML = `
+        <p style="margin:0 0 10px">Finally, step in the direction that reduces loss:</p>
+        ${mathBox(C.green,
+          `w<sub>ij</sub><sup>new</sup> = w<sub>ij</sub> − η · ∂L/∂w<sub>ij</sub>`,
+          `w<sub>ij</sub><sup>new</sup> = ${NET.w_ij} − ${LR} × (${dL_dw.toFixed(4)}) = <strong>${w_new.toFixed(4)}</strong>`
+        )}
+        <div class="values-row" style="margin-top:12px">
+          ${numBox("Old weight", NET.w_ij, C.dim, {small:true})}
+          <span style="color:${C.green};font-size:1.4rem;align-self:flex-end;padding-bottom:2px">→</span>
+          ${numBox("New weight", w_new, C.green, {small:true, glow:true})}
+        </div>
+        <p class="note">The weight increased (since gradient was negative) — pushing the prediction closer to the target. Learning rate η = ${LR} controls the step size.</p>`;
+      break;
+  }
+}
+
+// ─── Progress Bar ───
+function buildProgress() {
+  const el = document.getElementById('progress');
+  el.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-seg';
+    const isBack = ["dL_da","da_dz","dz_dw","chain"].includes(s.key);
+    const isUpd = s.key === "update";
+    let bg;
+    if (i <= step) {
+      bg = isBack ? C.orange : isUpd ? C.green : i===step ? C.text : C.green;
+    } else {
+      bg = C.border;
+    }
+    seg.style.background = bg;
+    seg.style.opacity = i <= step ? 1 : 0.3;
+    seg.onclick = () => { step = i; playing = false; clearTimeout(playTimer); render(); };
+    el.appendChild(seg);
+  });
+}
+
+// ─── Summary ───
+function buildSummary() {
+  document.getElementById('summary').innerHTML = `
+    <span style="color:${C.muted}">Full chain: </span>
+    <span style="color:${C.orange}">(${dL_da.toFixed(3)})</span>
+    <span style="color:${C.dim}"> × </span>
+    <span style="color:${C.yellow}">(${da_dz.toFixed(3)})</span>
+    <span style="color:${C.dim}"> × </span>
+    <span style="color:${C.cyan}">(${dz_dw.toFixed(3)})</span>
+    <span style="color:${C.dim}"> = </span>
+    <span style="color:${C.indigo};font-weight:600">${dL_dw.toFixed(4)}</span>
+    <span style="color:${C.dim}"> → </span>
+    <span style="color:${C.green};font-weight:600">w = ${w_new.toFixed(4)}</span>`;
+}
+
+// ─── Controls ───
+function updateButtons() {
+  document.getElementById('btn-back').disabled = step === 0;
+  document.getElementById('btn-next').disabled = step >= STEPS.length - 1;
+  const playBtn = document.getElementById('btn-play');
+  if (playing) {
+    playBtn.textContent = '⏸ Pause';
+    playBtn.classList.add('playing');
+  } else {
+    playBtn.textContent = step >= STEPS.length - 1 ? '↻ Replay' : '▶ Play';
+    playBtn.classList.remove('playing');
+  }
+}
+
+function render() {
+  buildGraph();
+  renderStep();
+  buildProgress();
+  buildSummary();
+  updateButtons();
+}
+
+function resetAnim() {
+  step = 0;
+  playing = false;
+  clearTimeout(playTimer);
+  render();
+}
+
+function goBack() {
+  if (step > 0) { step--; playing = false; clearTimeout(playTimer); render(); }
+}
+
+function goNext() {
+  if (step < STEPS.length - 1) { step++; playing = false; clearTimeout(playTimer); render(); }
+}
+
+function togglePlay() {
+  if (step >= STEPS.length - 1) {
+    step = 0;
+    playing = true;
+    render();
+    scheduleNext();
+  } else {
+    playing = !playing;
+    render();
+    if (playing) scheduleNext();
+    else clearTimeout(playTimer);
+  }
+}
+
+function scheduleNext() {
+  if (!playing) return;
+  playTimer = setTimeout(() => {
+    if (step >= STEPS.length - 1) {
+      playing = false;
+      render();
+      return;
+    }
+    step++;
+    render();
+    scheduleNext();
+  }, 3500);
+}
+
+// ─── Init ───
+render();
+</script>
+</body>
+</html>
