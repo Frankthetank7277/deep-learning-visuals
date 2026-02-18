@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backpropagation Visualization</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-card: #111827;
+    --neuron-input: #22d3ee;
+    --neuron-hidden: #a78bfa;
+    --neuron-output: #f472b6;
+    --forward: #34d399;
+    --backward: #fb923c;
+    --error-red: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #475569;
+    --accent: #6366f1;
+    --grid-line: #1e293b;
+    --font: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    --display-font: 'Instrument Serif', Georgia, serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    gap: 20px;
+  }
+
+  h1 {
+    font-family: var(--display-font);
+    font-size: 2.4rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--neuron-input), var(--neuron-hidden), var(--neuron-output));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--grid-line);
+    border-radius: 12px;
+    padding: 16px 24px;
+    max-width: 700px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .phase-title {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    transition: color 0.3s;
+  }
+
+  .phase-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .svg-container {
+    background: var(--bg-card);
+    border: 1px solid var(--grid-line);
+    border-radius: 16px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 780px;
+  }
+
+  .svg-container svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 0.8rem;
+    font-family: var(--font);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+  }
+
+  .btn:disabled {
+    background: #1e293b !important;
+    color: #475569;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .btn-reset { background: #334155; }
+  .btn-play { background: #059669; }
+  .btn-play.playing { background: #dc2626; }
+  .btn-play.replay { background: #059669; }
+  .btn-step { background: #4f46e5; }
+
+  .progress-bar {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .progress-segment {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .equation-card {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+
+  .equation-label { color: var(--text); font-weight: 500; }
+
+  .equation-formula {
+    font-family: var(--display-font);
+    font-size: 1rem;
+    color: var(--neuron-hidden);
+  }
+
+  .equation-note {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+  }
+
+  .connection { transition: all 0.5s ease; }
+  .neuron-circle { transition: all 0.4s ease; }
+
+  @keyframes pulseR {
+    0%, 100% { r: attr(data-r-min); }
+    50% { r: attr(data-r-max); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div style="text-align: center">
+  <h1>Backpropagation</h1>
+  <p class="subtitle">How neural networks learn from their mistakes</p>
+</div>
+
+<!-- Phase Info -->
+<div class="card" id="phase-card">
+  <div class="phase-title" id="phase-title">Neural Network</div>
+  <div class="phase-desc" id="phase-desc">A 4-layer neural network ready for training. Click Play to begin.</div>
+</div>
+
+<!-- SVG Network -->
+<div class="svg-container">
+  <svg id="network-svg" viewBox="0 0 780 500"></svg>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn btn-reset" onclick="handleReset()">↺ Reset</button>
+  <button class="btn btn-play" id="btn-play" onclick="handlePlayPause()">▶ Play</button>
+  <button class="btn btn-step" id="btn-step" onclick="handleStep()">⏭ Step</button>
+</div>
+
+<!-- Progress Bar -->
+<div class="progress-bar" id="progress-bar"></div>
+
+<!-- Legend -->
+<div class="legend">
+  <span class="legend-item"><span class="legend-dot" style="background: var(--forward)"></span> Forward signal</span>
+  <span class="legend-item"><span class="legend-dot" style="background: var(--backward)"></span> Gradient flow</span>
+  <span class="legend-item"><span class="legend-dot" style="background: var(--error-red)"></span> Loss</span>
+  <span class="legend-item"><span class="legend-dot" style="background: var(--accent)"></span> Weight update</span>
+</div>
+
+<!-- Equation Card -->
+<div class="card equation-card">
+  <span class="equation-label">Chain Rule: </span>
+  <span class="equation-formula">∂L/∂wᵢⱼ = ∂L/∂aⱼ · ∂aⱼ/∂zⱼ · ∂zⱼ/∂wᵢⱼ</span>
+  <br>
+  <span class="equation-note">
+    Each weight's gradient is computed by chaining local derivatives from loss back to that weight.
+    Hover neurons during backprop to see gradients.
+  </span>
+</div>
+
+<script>
+// ── Constants ──
+const LAYER_X = [120, 300, 480, 660];
+const NEURON_R = 22;
+const COLORS = {
+  bg: '#0a0e1a', bgCard: '#111827', neuronInput: '#22d3ee',
+  neuronHidden: '#a78bfa', neuronOutput: '#f472b6', forward: '#34d399',
+  backward: '#fb923c', errorRed: '#ef4444', text: '#e2e8f0',
+  textMuted: '#94a3b8', textDim: '#475569', accent: '#6366f1', gridLine: '#1e293b',
+};
+const FONT = "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace";
+
+// ── Neurons ──
+const neurons = {
+  input: [
+    { id: 'i0', x: LAYER_X[0], y: 140, layer: 0, label: 'x₁', value: 0.8 },
+    { id: 'i1', x: LAYER_X[0], y: 260, layer: 0, label: 'x₂', value: 0.2 },
+    { id: 'i2', x: LAYER_X[0], y: 380, layer: 0, label: 'x₃', value: 0.5 },
+  ],
+  hidden1: [
+    { id: 'h0', x: LAYER_X[1], y: 120, layer: 1, label: 'h₁', value: 0 },
+    { id: 'h1', x: LAYER_X[1], y: 220, layer: 1, label: 'h₂', value: 0 },
+    { id: 'h2', x: LAYER_X[1], y: 320, layer: 1, label: 'h₃', value: 0 },
+    { id: 'h3', x: LAYER_X[1], y: 420, layer: 1, label: 'h₄', value: 0 },
+  ],
+  hidden2: [
+    { id: 'g0', x: LAYER_X[2], y: 180, layer: 2, label: 'h₅', value: 0 },
+    { id: 'g1', x: LAYER_X[2], y: 300, layer: 2, label: 'h₆', value: 0 },
+    { id: 'g2', x: LAYER_X[2], y: 420, layer: 2, label: 'h₇', value: 0 },
+  ],
+  output: [
+    { id: 'o0', x: LAYER_X[3], y: 220, layer: 3, label: 'ŷ₁', value: 0 },
+    { id: 'o1', x: LAYER_X[3], y: 340, layer: 3, label: 'ŷ₂', value: 0 },
+  ],
+};
+
+const allNeurons = [...neurons.input, ...neurons.hidden1, ...neurons.hidden2, ...neurons.output];
+const layers = [neurons.input, neurons.hidden1, neurons.hidden2, neurons.output];
+
+// ── Connections ──
+const connections = [];
+for (let l = 0; l < layers.length - 1; l++) {
+  for (const from of layers[l]) {
+    for (const to of layers[l + 1]) {
+      connections.push({ from, to, weight: (Math.random() * 2 - 1).toFixed(2) });
+    }
+  }
+}
+
+// ── Phases ──
+const PHASES = [
+  { key: 'idle', title: 'Neural Network', desc: 'A 4-layer neural network ready for training. Click Play to begin.' },
+  { key: 'forward1', title: 'Forward Pass — Layer 1 → 2', desc: 'Input values are multiplied by weights and passed through activation functions to produce hidden layer activations.' },
+  { key: 'forward2', title: 'Forward Pass — Layer 2 → 3', desc: 'Hidden activations flow forward, each neuron computing a weighted sum then applying σ(z) = 1/(1+e⁻ᶻ).' },
+  { key: 'forward3', title: 'Forward Pass — Layer 3 → Output', desc: 'Final activations produce the network\'s predictions ŷ. We can now compute the loss.' },
+  { key: 'loss', title: 'Compute Loss', desc: 'Loss L = ½Σ(y - ŷ)² measures how far predictions are from targets. This is the signal that drives learning.' },
+  { key: 'back3', title: 'Backprop — Output → Layer 3', desc: '∂L/∂w is computed using the chain rule. Error gradients flow backward from the loss through each output neuron.' },
+  { key: 'back2', title: 'Backprop — Layer 3 → Layer 2', desc: 'Gradients propagate deeper. Each neuron distributes its error proportionally across all incoming connections.' },
+  { key: 'back1', title: 'Backprop — Layer 2 → Layer 1', desc: 'The chain rule composes partial derivatives layer by layer: ∂L/∂w = ∂L/∂a · ∂a/∂z · ∂z/∂w.' },
+  { key: 'update', title: 'Weight Update', desc: 'Each weight is adjusted: w ← w − η·∂L/∂w. The learning rate η controls step size. One epoch complete!' },
+];
+
+// ── State ──
+let phase = 0;
+let playing = false;
+let timer = null;
+const neuronValues = {};
+const gradients = {};
+let lossValue = null;
+let hoveredNeuron = null;
+let activeParticles = [];
+let particleAnimFrame = null;
+
+// ── Helper ──
+const sigmoid = x => 1 / (1 + Math.exp(-x));
+const svgNS = 'http://www.w3.org/2000/svg';
+
+function el(tag, attrs = {}, parent = null) {
+  const e = document.createElementNS(svgNS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ── Compute neuron values ──
+function computeValues() {
+  neurons.input.forEach(n => neuronValues[n.id] = n.value);
+  neurons.hidden1.forEach(n => {
+    const z = neurons.input.reduce((s, inp) => s + inp.value * (Math.random() * 0.5 + 0.2), 0);
+    neuronValues[n.id] = parseFloat(sigmoid(z).toFixed(3));
+  });
+  neurons.hidden2.forEach(n => {
+    const z = neurons.hidden1.reduce((s, h) => s + (neuronValues[h.id] || 0.5) * (Math.random() * 0.5 + 0.2), 0);
+    neuronValues[n.id] = parseFloat(sigmoid(z).toFixed(3));
+  });
+  neurons.output.forEach(n => {
+    const z = neurons.hidden2.reduce((s, h) => s + (neuronValues[h.id] || 0.5) * (Math.random() * 0.5 + 0.2), 0);
+    neuronValues[n.id] = parseFloat(sigmoid(z).toFixed(3));
+  });
+  allNeurons.forEach(n => {
+    gradients[n.id] = parseFloat((Math.random() * 0.4 - 0.2).toFixed(3));
+  });
+}
+
+// ── Phase logic ──
+function getPhaseKey() { return PHASES[phase].key; }
+
+function getNeuronColor(n) {
+  if (n.layer === 0) return COLORS.neuronInput;
+  if (n.layer === 3) return COLORS.neuronOutput;
+  return COLORS.neuronHidden;
+}
+
+function getLayerActivity(layerIndex) {
+  const key = getPhaseKey();
+  if (key === 'forward1' && layerIndex <= 1) return 'forward';
+  if (key === 'forward2' && layerIndex <= 2) return 'forward';
+  if (key === 'forward3' && layerIndex <= 3) return 'forward';
+  if (key === 'loss') return 'loss';
+  if (key === 'back3' && layerIndex >= 2) return 'backward';
+  if (key === 'back2' && layerIndex >= 1) return 'backward';
+  if (key === 'back1') return 'backward';
+  if (key === 'update') return 'update';
+  return 'idle';
+}
+
+function getConnectionOpacity(c) {
+  const key = getPhaseKey();
+  if (key === 'idle') return 0.15;
+  if (key === 'forward1' && c.from.layer === 0) return 0.7;
+  if (key === 'forward2' && c.from.layer === 1) return 0.7;
+  if (key === 'forward3' && c.from.layer === 2) return 0.7;
+  if (key === 'back3' && c.to.layer === 3) return 0.7;
+  if (key === 'back2' && c.to.layer === 2) return 0.7;
+  if (key === 'back1' && c.to.layer === 1) return 0.7;
+  if (key === 'update') return 0.5;
+  return 0.1;
+}
+
+function getConnectionColor(c) {
+  const key = getPhaseKey();
+  const op = getConnectionOpacity(c);
+  if (key.startsWith('back') && op > 0.3) return COLORS.backward;
+  if (key.startsWith('forward') && op > 0.3) return COLORS.forward;
+  if (key === 'update') return COLORS.accent;
+  return COLORS.textDim;
+}
+
+// ── Particle animation system ──
+function spawnParticles() {
+  activeParticles = [];
+  const key = getPhaseKey();
+  let filtered = [];
+  let reverseDir = false;
+
+  if (key === 'forward1') filtered = connections.filter(c => c.from.layer === 0);
+  else if (key === 'forward2') filtered = connections.filter(c => c.from.layer === 1);
+  else if (key === 'forward3') filtered = connections.filter(c => c.from.layer === 2);
+  else if (key === 'back3') { filtered = connections.filter(c => c.to.layer === 3); reverseDir = true; }
+  else if (key === 'back2') { filtered = connections.filter(c => c.to.layer === 2); reverseDir = true; }
+  else if (key === 'back1') { filtered = connections.filter(c => c.to.layer === 1); reverseDir = true; }
+
+  const delayStep = key.startsWith('forward') ? (key === 'forward2' ? 30 : 40) : (key === 'back2' ? 30 : 50);
+
+  filtered.forEach((c, i) => {
+    activeParticles.push({
+      from: reverseDir ? c.to : c.from,
+      to: reverseDir ? c.from : c.to,
+      color: reverseDir ? COLORS.backward : COLORS.forward,
+      delay: i * delayStep,
+      startTime: null,
+      duration: 900,
+    });
+  });
+
+  if (activeParticles.length > 0) startParticleLoop();
+}
+
+function startParticleLoop() {
+  if (particleAnimFrame) cancelAnimationFrame(particleAnimFrame);
+  const baseTime = performance.now();
+  activeParticles.forEach(p => p.startTime = baseTime + p.delay);
+
+  const particleGroup = document.getElementById('particle-group');
+
+  function loop(now) {
+    // Clear old particles
+    while (particleGroup.firstChild) particleGroup.removeChild(particleGroup.firstChild);
+
+    let anyAlive = false;
+    for (const p of activeParticles) {
+      if (now < p.startTime) { anyAlive = true; continue; }
+      const elapsed = now - p.startTime;
+      const progress = Math.min(elapsed / p.duration, 1);
+      if (progress >= 1) continue;
+      anyAlive = true;
+
+      const x = p.from.x + (p.to.x - p.from.x) * progress;
+      const y = p.from.y + (p.to.y - p.from.y) * progress;
+
+      const circle = el('circle', {
+        cx: x, cy: y, r: 3, fill: p.color, opacity: 0.95, filter: 'url(#glow)'
+      }, particleGroup);
+    }
+
+    if (anyAlive) particleAnimFrame = requestAnimationFrame(loop);
+  }
+
+  particleAnimFrame = requestAnimationFrame(loop);
+}
+
+// ── Build SVG ──
+function buildSVG() {
+  const svg = document.getElementById('network-svg');
+  svg.innerHTML = '';
+
+  // Defs
+  const defs = el('defs', {}, svg);
+  const glow = el('filter', { id: 'glow' }, defs);
+  el('feGaussianBlur', { stdDeviation: 4, result: 'blur' }, glow);
+  const merge = el('feMerge', {}, glow);
+  el('feMergeNode', { in: 'blur' }, merge);
+  el('feMergeNode', { in: 'SourceGraphic' }, merge);
+
+  const strongGlow = el('filter', { id: 'strongGlow' }, defs);
+  el('feGaussianBlur', { stdDeviation: 8, result: 'blur' }, strongGlow);
+  const merge2 = el('feMerge', {}, strongGlow);
+  el('feMergeNode', { in: 'blur' }, merge2);
+  el('feMergeNode', { in: 'SourceGraphic' }, merge2);
+
+  // Grid
+  for (let i = 0; i < 20; i++) {
+    el('line', { x1: i*40, y1: 0, x2: i*40, y2: 500, stroke: COLORS.gridLine, 'stroke-width': 0.5, opacity: 0.4 }, svg);
+  }
+  for (let i = 0; i < 13; i++) {
+    el('line', { x1: 0, y1: i*40, x2: 780, y2: i*40, stroke: COLORS.gridLine, 'stroke-width': 0.5, opacity: 0.4 }, svg);
+  }
+
+  // Layer labels
+  const layerLabels = [
+    { x: LAYER_X[0], label: 'Input' },
+    { x: LAYER_X[1], label: 'Hidden 1' },
+    { x: LAYER_X[2], label: 'Hidden 2' },
+    { x: LAYER_X[3], label: 'Output' },
+  ];
+  layerLabels.forEach(l => {
+    const t = el('text', {
+      x: l.x, y: 470, 'text-anchor': 'middle', fill: COLORS.textDim,
+      'font-size': 11, 'font-family': FONT
+    }, svg);
+    t.textContent = l.label;
+  });
+
+  // Connection group
+  const connGroup = el('g', { id: 'conn-group' }, svg);
+
+  // Particle group
+  el('g', { id: 'particle-group' }, svg);
+
+  // Loss group (hidden initially)
+  el('g', { id: 'loss-group', style: 'display:none' }, svg);
+
+  // Direction label
+  const dirLabel = el('text', {
+    id: 'dir-label', x: 390, y: 48, 'text-anchor': 'middle',
+    'font-size': 13, 'font-family': FONT, opacity: 0.7, style: 'display:none'
+  }, svg);
+
+  // Target labels
+  const targetGroup = el('g', { id: 'target-group', style: 'display:none' }, svg);
+  const t1 = el('text', {
+    x: 660, y: 195, 'text-anchor': 'middle', fill: COLORS.textDim,
+    'font-size': 9, 'font-family': FONT
+  }, targetGroup);
+  t1.textContent = 'target: 0.9';
+  const t2 = el('text', {
+    x: 660, y: 365, 'text-anchor': 'middle', fill: COLORS.textDim,
+    'font-size': 9, 'font-family': FONT
+  }, targetGroup);
+  t2.textContent = 'target: 0.1';
+
+  // Neuron group
+  el('g', { id: 'neuron-group' }, svg);
+
+  // Gradient tooltip group (on top)
+  el('g', { id: 'tooltip-group' }, svg);
+}
+
+// ── Render ──
+function render() {
+  const key = getPhaseKey();
+  const isForward = key.startsWith('forward');
+  const isBack = key.startsWith('back');
+  const isUpdate = key === 'update';
+  const currentPhase = PHASES[phase];
+
+  // Phase info
+  const titleEl = document.getElementById('phase-title');
+  titleEl.textContent = currentPhase.title;
+  titleEl.style.color = isForward ? COLORS.forward : isBack ? COLORS.backward : isUpdate ? COLORS.accent : COLORS.text;
+  document.getElementById('phase-desc').textContent = currentPhase.desc;
+
+  // Connections
+  const connGroup = document.getElementById('conn-group');
+  connGroup.innerHTML = '';
+  connections.forEach(c => {
+    el('line', {
+      x1: c.from.x, y1: c.from.y, x2: c.to.x, y2: c.to.y,
+      stroke: getConnectionColor(c),
+      'stroke-width': getConnectionOpacity(c) > 0.3 ? 1.5 : 0.8,
+      opacity: getConnectionOpacity(c),
+      class: 'connection'
+    }, connGroup);
+  });
+
+  // Loss node
+  const lossGroup = document.getElementById('loss-group');
+  lossGroup.innerHTML = '';
+  if (key === 'loss' || isBack || isUpdate) {
+    lossGroup.style.display = '';
+
+    // Compute loss
+    if (key === 'loss') {
+      const targets = [0.9, 0.1];
+      const preds = neurons.output.map(n => neuronValues[n.id] || 0.5);
+      lossValue = (0.5 * targets.reduce((s, t, i) => s + (t - preds[i]) ** 2, 0)).toFixed(4);
+    }
+
+    el('line', { x1: neurons.output[0].x, y1: neurons.output[0].y, x2: 730, y2: 280, stroke: COLORS.errorRed, 'stroke-width': 1.5, opacity: 0.5, 'stroke-dasharray': '4 3' }, lossGroup);
+    el('line', { x1: neurons.output[1].x, y1: neurons.output[1].y, x2: 730, y2: 280, stroke: COLORS.errorRed, 'stroke-width': 1.5, opacity: 0.5, 'stroke-dasharray': '4 3' }, lossGroup);
+
+    const lossCircle = el('circle', { cx: 730, cy: 280, r: 28, fill: COLORS.bg, stroke: COLORS.errorRed, 'stroke-width': 2, filter: 'url(#glow)', opacity: 0.9 }, lossGroup);
+    if (key === 'loss') {
+      const anim = el('animate', { attributeName: 'r', values: '26;30;26', dur: '1.2s', repeatCount: 'indefinite' });
+      lossCircle.appendChild(anim);
+    }
+
+    const lt = el('text', { x: 730, y: 275, 'text-anchor': 'middle', fill: COLORS.errorRed, 'font-size': 12, 'font-family': FONT, 'font-weight': 600 }, lossGroup);
+    lt.textContent = 'Loss';
+
+    if (lossValue) {
+      const lv = el('text', { x: 730, y: 292, 'text-anchor': 'middle', fill: COLORS.errorRed, 'font-size': 10, 'font-family': FONT, opacity: 0.8 }, lossGroup);
+      lv.textContent = lossValue;
+    }
+  } else {
+    lossGroup.style.display = 'none';
+  }
+
+  // Direction label
+  const dirLabel = document.getElementById('dir-label');
+  if (isForward) {
+    dirLabel.style.display = '';
+    dirLabel.setAttribute('fill', COLORS.forward);
+    dirLabel.textContent = '→ Forward Pass →';
+  } else if (isBack) {
+    dirLabel.style.display = '';
+    dirLabel.setAttribute('fill', COLORS.backward);
+    dirLabel.textContent = '← Backpropagation ←';
+  } else if (isUpdate) {
+    dirLabel.style.display = '';
+    dirLabel.setAttribute('fill', COLORS.accent);
+    dirLabel.textContent = '⟳ Weight Update';
+  } else {
+    dirLabel.style.display = 'none';
+  }
+
+  // Targets
+  document.getElementById('target-group').style.display = (key === 'loss' || isBack) ? '' : 'none';
+
+  // Neurons
+  const neuronGroup = document.getElementById('neuron-group');
+  neuronGroup.innerHTML = '';
+
+  allNeurons.forEach(n => {
+    const activity = getLayerActivity(n.layer);
+    const baseColor = getNeuronColor(n);
+    const isActive = (activity === 'forward' && isForward) || (activity === 'backward' && isBack) || activity === 'update';
+    const showGradient = isBack || isUpdate;
+
+    const g = el('g', { style: 'cursor:pointer' }, neuronGroup);
+
+    // Glow ring
+    if (isActive) {
+      const glowRing = el('circle', {
+        cx: n.x, cy: n.y, r: NEURON_R + 6, fill: 'none',
+        stroke: isBack ? COLORS.backward : isUpdate ? COLORS.accent : baseColor,
+        'stroke-width': 1.5, opacity: 0.3, filter: 'url(#strongGlow)'
+      }, g);
+      const a1 = el('animate', { attributeName: 'r', values: `${NEURON_R+4};${NEURON_R+9};${NEURON_R+4}`, dur: '1.5s', repeatCount: 'indefinite' });
+      glowRing.appendChild(a1);
+      const a2 = el('animate', { attributeName: 'opacity', values: '0.3;0.15;0.3', dur: '1.5s', repeatCount: 'indefinite' });
+      glowRing.appendChild(a2);
+    }
+
+    // Main circle
+    el('circle', {
+      cx: n.x, cy: n.y, r: NEURON_R, fill: COLORS.bg,
+      stroke: isActive ? (isBack ? COLORS.backward : isUpdate ? COLORS.accent : baseColor) : baseColor,
+      'stroke-width': isActive ? 2.5 : 1.5,
+      opacity: isActive || phase === 0 ? 1 : 0.5,
+      class: 'neuron-circle'
+    }, g);
+
+    // Label
+    const label = el('text', {
+      x: n.x, y: n.y - 3, 'text-anchor': 'middle', fill: baseColor,
+      'font-size': 11, 'font-family': FONT, 'font-weight': 500, 'dominant-baseline': 'middle'
+    }, g);
+    label.textContent = n.label;
+
+    // Value
+    const val = el('text', {
+      x: n.x, y: n.y + 11, 'text-anchor': 'middle', fill: COLORS.textMuted,
+      'font-size': 8, 'font-family': FONT, 'dominant-baseline': 'middle'
+    }, g);
+    val.textContent = neuronValues[n.id] !== undefined ? neuronValues[n.id].toFixed(2) : '—';
+
+    // Hover for gradient tooltip
+    g.addEventListener('mouseenter', () => {
+      if (!showGradient) return;
+      hoveredNeuron = n.id;
+      const tooltip = document.getElementById('tooltip-group');
+      tooltip.innerHTML = '';
+      el('rect', {
+        x: n.x - 30, y: n.y - NEURON_R - 22, width: 60, height: 18,
+        rx: 4, fill: COLORS.backward, opacity: 0.9
+      }, tooltip);
+      const tt = el('text', {
+        x: n.x, y: n.y - NEURON_R - 10, 'text-anchor': 'middle', fill: COLORS.bg,
+        'font-size': 9, 'font-family': FONT, 'font-weight': 600
+      }, tooltip);
+      tt.textContent = `∇ ${gradients[n.id]}`;
+    });
+
+    g.addEventListener('mouseleave', () => {
+      hoveredNeuron = null;
+      document.getElementById('tooltip-group').innerHTML = '';
+    });
+  });
+
+  // Particles
+  spawnParticles();
+
+  // Play button text
+  const btnPlay = document.getElementById('btn-play');
+  if (playing) {
+    btnPlay.textContent = '⏸ Pause';
+    btnPlay.className = 'btn btn-play playing';
+  } else if (phase >= PHASES.length - 1) {
+    btnPlay.textContent = '↻ Replay';
+    btnPlay.className = 'btn btn-play replay';
+  } else {
+    btnPlay.textContent = '▶ Play';
+    btnPlay.className = 'btn btn-play';
+  }
+
+  // Step button
+  document.getElementById('btn-step').disabled = phase >= PHASES.length - 1;
+
+  // Progress bar
+  renderProgress();
+}
+
+function renderProgress() {
+  const bar = document.getElementById('progress-bar');
+  bar.innerHTML = '';
+  PHASES.forEach((p, i) => {
+    const seg = document.createElement('div');
+    seg.className = 'progress-segment';
+    let bg;
+    if (i < phase) {
+      bg = p.key.startsWith('forward') ? COLORS.forward :
+           p.key.startsWith('back') ? COLORS.backward :
+           p.key === 'update' ? COLORS.accent : COLORS.textDim;
+    } else if (i === phase) {
+      bg = COLORS.text;
+    } else {
+      bg = COLORS.gridLine;
+    }
+    seg.style.background = bg;
+    seg.style.opacity = i <= phase ? 1 : 0.4;
+    seg.title = p.title;
+    seg.addEventListener('click', () => { phase = i; playing = false; clearTimeout(timer); render(); });
+    bar.appendChild(seg);
+  });
+}
+
+// ── Controls ──
+function handlePlayPause() {
+  if (phase >= PHASES.length - 1) {
+    phase = 0;
+    playing = true;
+    lossValue = null;
+    render();
+    autoAdvance();
+  } else {
+    playing = !playing;
+    if (playing) autoAdvance();
+    else clearTimeout(timer);
+    render();
+  }
+}
+
+function handleReset() {
+  phase = 0;
+  playing = false;
+  lossValue = null;
+  clearTimeout(timer);
+  if (particleAnimFrame) cancelAnimationFrame(particleAnimFrame);
+  document.getElementById('particle-group').innerHTML = '';
+  render();
+}
+
+function handleStep() {
+  playing = false;
+  clearTimeout(timer);
+  if (phase < PHASES.length - 1) phase++;
+  render();
+}
+
+function autoAdvance() {
+  if (!playing) return;
+  timer = setTimeout(() => {
+    if (phase >= PHASES.length - 1) {
+      playing = false;
+      render();
+      return;
+    }
+    phase++;
+    render();
+    autoAdvance();
+  }, 2200);
+}
+
+// ── Init ──
+computeValues();
+buildSVG();
+render();
+</script>
+</body>
+</html>
