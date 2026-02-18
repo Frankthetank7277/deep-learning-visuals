@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confusion Matrix — Interactive Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,400;0,600;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ee;
+  --surface: #ffffff;
+  --surface2: #f0ece6;
+  --border: #d8d0c4;
+  --text: #1a1612;
+  --muted: #8a7f74;
+  --TP: #2d6a4f;   --TP-light: #d8f3dc;
+  --TN: #1d3d6e;   --TN-light: #dbeafe;
+  --FP: #9b2226;   --FP-light: #fde8e8;
+  --FN: #7b3f00;   --FN-light: #fff0d6;
+  --accent: #5a3e8f;
+  --accent-light: #ede9f8;
+  --gold: #b5830a;
+  --gold-light: #fef9ec;
+  --mono: 'IBM Plex Mono', monospace;
+  --serif: 'Fraunces', Georgia, serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--serif);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* HEADER */
+header {
+  background: var(--text);
+  color: var(--bg);
+  padding: 44px 60px 36px;
+  position: relative;
+  overflow: hidden;
+}
+header::after {
+  content: '[[matrix]]';
+  position: absolute;
+  right: 60px; top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 4rem;
+  color: rgba(255,255,255,0.06);
+  letter-spacing: -0.05em;
+  pointer-events: none;
+}
+header h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+header h1 em { font-style: italic; color: #c4b5fd; }
+header p {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: #9d9080;
+  letter-spacing: 0.06em;
+}
+
+/* NAV */
+nav {
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
+  display: flex;
+  gap: 0;
+  padding: 0 60px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+nav::-webkit-scrollbar { display: none; }
+.tab {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  padding: 14px 20px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+  text-transform: uppercase;
+  margin-bottom: -2px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* MAIN */
+main { padding: 40px 60px; max-width: 1300px; }
+.section { display: none; animation: fadeIn 0.25s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 26px;
+}
+.card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.card p, .card li {
+  font-size: 0.88rem;
+  line-height: 1.75;
+  color: #4a4037;
+}
+.card ul { padding-left: 18px; }
+.card li { margin-bottom: 5px; }
+
+.formula-block {
+  background: var(--text);
+  color: #e8e0d8;
+  border-radius: 8px;
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 2;
+  overflow-x: auto;
+  white-space: pre;
+}
+.formula-block .k { color: #c4b5fd; }
+.formula-block .v { color: #6ee7b7; }
+.formula-block .c { color: #6b6055; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.gap { display: flex; flex-direction: column; gap: 20px; }
+
+/* ============================
+   SECTION 1: BINARY MATRIX
+   ============================ */
+
+/* THE INTERACTIVE MATRIX */
+.matrix-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-axis-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.matrix-axis-label.vertical {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin-right: 8px;
+}
+
+.matrix-outer {
+  display: flex;
+  align-items: center;
+}
+
+.predicted-labels {
+  display: grid;
+  grid-template-columns: 80px 80px;
+  margin-left: 82px;
+  margin-bottom: 6px;
+  gap: 6px;
+}
+.predicted-labels span {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.matrix-row-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-right: 6px;
+  width: 76px;
+}
+.matrix-row-labels span {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: 80px 80px;
+  grid-template-rows: 80px 80px;
+  gap: 6px;
+}
+
+.matrix-cell {
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  user-select: none;
+}
+.matrix-cell:hover { transform: scale(1.04); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.matrix-cell .cell-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  margin-bottom: 4px;
+  opacity: 0.85;
+}
+.matrix-cell .cell-value {
+  font-family: var(--mono);
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.matrix-cell .cell-controls {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.cell-btn {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.2);
+  background: rgba(255,255,255,0.5);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s;
+}
+.cell-btn:hover { background: rgba(255,255,255,0.9); }
+
+.cell-TP { background: var(--TP-light); color: var(--TP); }
+.cell-TN { background: var(--TN-light); color: var(--TN); }
+.cell-FP { background: var(--FP-light); color: var(--FP); }
+.cell-FN { background: var(--FN-light); color: var(--FN); }
+
+/* METRICS PANEL */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.metric-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  transition: border-color 0.2s;
+}
+.metric-card:hover { border-color: var(--accent); }
+.metric-card .metric-name {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.metric-card .metric-val {
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.metric-card .metric-formula {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.metric-card .metric-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.metric-card .metric-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.highlight-box {
+  background: var(--gold-light);
+  border: 1px solid #e8c566;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: #5a4008;
+}
+
+/* TOOLTIP EXPLAINER */
+.explainer {
+  background: var(--accent-light);
+  border: 1px solid #c4b5fd;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: #3d2970;
+  min-height: 56px;
+  transition: all 0.2s;
+}
+.explainer strong { font-weight: 700; }
+
+/* PRESET BUTTONS */
+.preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.preset-btn {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.preset-btn:hover, .preset-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* ============================
+   MULTICLASS SECTION
+   ============================ */
+.mc-grid-wrap { overflow-x: auto; }
+.mc-matrix {
+  border-collapse: separate;
+  border-spacing: 5px;
+  font-family: var(--mono);
+}
+.mc-matrix th {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 10px;
+  text-align: center;
+  font-weight: 400;
+}
+.mc-matrix td {
+  width: 64px; height: 64px;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.12s;
+  position: relative;
+}
+.mc-matrix td:hover { transform: scale(1.08); }
+.mc-diag { background: #d8f3dc; color: #1b5e37; }
+.mc-off  { background: #fde8e8; color: #7f1d1d; }
+.mc-off-0 { opacity: 0.3; }
+.mc-off-1 { opacity: 0.55; }
+.mc-off-2 { opacity: 0.75; }
+.mc-off-3 { opacity: 1; }
+
+.mc-tooltip {
+  background: var(--text);
+  color: #e8e0d8;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.7;
+  min-height: 60px;
+  transition: all 0.15s;
+}
+.mc-tooltip .t-class { color: #c4b5fd; }
+.mc-tooltip .t-val { color: #6ee7b7; }
+.mc-tooltip .t-err { color: #fca5a5; }
+
+.mc-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.mc-metrics-table th {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.mc-metrics-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: #3a3028;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+.mc-metrics-table tr:last-child td { border-bottom: none; }
+.mc-metrics-table tr:hover td { background: var(--surface2); }
+
+/* ============================
+   ROC SECTION
+   ============================ */
+#rocCanvas {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  cursor: crosshair;
+}
+.roc-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.roc-slider-row { display: flex; align-items: center; gap: 10px; }
+.roc-slider-row label { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); min-width: 110px; }
+.roc-slider-row input { accent-color: var(--accent); flex: 1; cursor: pointer; }
+.roc-slider-row .val { font-family: var(--mono); font-size: 0.72rem; color: var(--accent); min-width: 42px; }
+
+/* ============================
+   WHEN TO USE SECTION
+   ============================ */
+.scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.scenario-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  border-left: 4px solid var(--accent);
+  transition: box-shadow 0.2s;
+}
+.scenario-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+.scenario-card h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+.scenario-card p { font-size: 0.82rem; color: #4a4037; line-height: 1.65; }
+.scenario-card .use-metric { margin-top: 10px; font-family: var(--mono); font-size: 0.72rem; color: var(--accent); }
+.scenario-card.danger { border-left-color: var(--FP); }
+.scenario-card.warning { border-left-color: var(--FN); }
+.scenario-card.balanced { border-left-color: var(--TP); }
+.scenario-card.info { border-left-color: var(--TN); }
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+.tag-TP { background: var(--TP-light); color: var(--TP); }
+.tag-TN { background: var(--TN-light); color: var(--TN); }
+.tag-FP { background: var(--FP-light); color: var(--FP); }
+.tag-FN { background: var(--FN-light); color: var(--FN); }
+.tag-acc { background: var(--accent-light); color: var(--accent); }
+
+/* PYTHON CODE BLOCK */
+.code-block {
+  background: #1a1612;
+  border-radius: 10px;
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 2;
+  color: #e8e0d8;
+  overflow-x: auto;
+  white-space: pre;
+}
+.py-kw { color: #c4b5fd; }
+.py-fn { color: #93c5fd; }
+.py-str { color: #fca5a5; }
+.py-cmt { color: #57534e; }
+.py-num { color: #6ee7b7; }
+
+@media (max-width: 900px) {
+  header, nav, main { padding-left: 20px; padding-right: 20px; }
+  .two-col, .three-col, .scenario-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Confusion <em>Matrix</em></h1>
+  <p>// interactive guide · binary · multiclass · metrics · ROC · when to use each</p>
+</header>
+
+<nav>
+  <button class="tab active" onclick="showSection('binary')">Binary Matrix</button>
+  <button class="tab" onclick="showSection('metrics')">All Metrics</button>
+  <button class="tab" onclick="showSection('multiclass')">Multiclass</button>
+  <button class="tab" onclick="showSection('roc')">ROC Curve</button>
+  <button class="tab" onclick="showSection('when')">When to Use What</button>
+  <button class="tab" onclick="showSection('python')">Python Code</button>
+</nav>
+
+<main>
+
+<!-- ======================== BINARY ======================== -->
+<div class="section active" id="sec-binary">
+  <div class="two-col" style="align-items:start; gap:32px;">
+
+    <!-- LEFT: interactive matrix -->
+    <div class="gap">
+      <div class="card">
+        <h3>Interactive Binary Confusion Matrix</h3>
+        <p style="margin-bottom:16px;">Click the <b>+</b> / <b>−</b> buttons or use presets to change values. Watch the metrics update live.</p>
+
+        <div class="preset-row" style="margin-bottom:20px;">
+          <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);align-self:center;text-transform:uppercase;letter-spacing:0.08em;">presets:</span>
+          <button class="preset-btn" onclick="setPreset('good')">Good Model</button>
+          <button class="preset-btn" onclick="setPreset('biased')">High Recall</button>
+          <button class="preset-btn" onclick="setPreset('precise')">High Precision</button>
+          <button class="preset-btn" onclick="setPreset('random')">Random</button>
+          <button class="preset-btn" onclick="setPreset('imbalanced')">Imbalanced Data</button>
+        </div>
+
+        <!-- Axis labels + matrix -->
+        <div style="margin-bottom:6px; margin-left:82px;">
+          <div style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Predicted →</div>
+          <div style="display:grid;grid-template-columns:80px 80px;gap:6px;margin-left:0px;">
+            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;text-align:center;">Positive</span>
+            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;text-align:center;">Negative</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-right:6px;">Actual ↓</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-right:6px;width:76px;">
+            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;height:80px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">Positive</span>
+            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);letter-spacing:0.06em;height:80px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">Negative</span>
+          </div>
+          <div class="matrix-grid" id="binaryMatrix">
+            <div class="matrix-cell cell-TP" onclick="highlight('TP')">
+              <span class="cell-label">TP</span>
+              <span class="cell-value" id="val-TP">45</span>
+              <div class="cell-controls">
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('TP',-1)">−</button>
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('TP',1)">+</button>
+              </div>
+            </div>
+            <div class="matrix-cell cell-FN" onclick="highlight('FN')">
+              <span class="cell-label">FN</span>
+              <span class="cell-value" id="val-FN">15</span>
+              <div class="cell-controls">
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('FN',-1)">−</button>
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('FN',1)">+</button>
+              </div>
+            </div>
+            <div class="matrix-cell cell-FP" onclick="highlight('FP')">
+              <span class="cell-label">FP</span>
+              <span class="cell-value" id="val-FP">8</span>
+              <div class="cell-controls">
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('FP',-1)">−</button>
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('FP',1)">+</button>
+              </div>
+            </div>
+            <div class="matrix-cell cell-TN" onclick="highlight('TN')">
+              <span class="cell-label">TN</span>
+              <span class="cell-value" id="val-TN">32</span>
+              <div class="cell-controls">
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('TN',-1)">−</button>
+                <button class="cell-btn" onclick="e=event;e.stopPropagation();changeCell('TN',1)">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px;" id="cell-explainer" class="explainer">
+          <strong>Click a cell</strong> to learn what it means, or use the +/− buttons to adjust values.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>What Do the Totals Tell You?</h3>
+        <div id="totals-readout" class="formula-block" style="font-size:0.76rem;"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: live metrics -->
+    <div class="gap">
+      <div class="card">
+        <h3>Live Metrics</h3>
+        <div class="metrics-grid" id="metricsPanel"></div>
+      </div>
+      <div class="card">
+        <h3>The Big Picture</h3>
+        <p>Accuracy alone is misleading on <b>imbalanced datasets</b>. Try the "Imbalanced Data" preset — a model that always predicts "Negative" would show 91% accuracy while being completely useless for detecting the positive class.</p>
+        <div class="highlight-box" style="margin-top:14px;">
+          <b>Rule of thumb:</b> If your classes are imbalanced, look at <b>Precision</b>, <b>Recall</b>, and <b>F1-Score</b> — not Accuracy.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== METRICS ======================== -->
+<div class="section" id="sec-metrics">
+  <div class="two-col" style="gap:28px;">
+    <div class="gap">
+
+      <div class="card">
+        <h3>Accuracy</h3>
+        <p>What fraction of <em>all</em> predictions were correct?</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">Accuracy</span> = (<span class="v">TP</span> + <span class="v">TN</span>) / (<span class="v">TP</span>+<span class="v">TN</span>+<span class="v">FP</span>+<span class="v">FN</span>)
+<span class="c">// Overall correct / total samples</span>
+<span class="c">// ⚠ Misleading on imbalanced data</span></div>
+        <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">Example: A cancer detector that always says "no cancer" achieves 99% accuracy on data with 1% positive rate — but zero clinical value.</div>
+      </div>
+
+      <div class="card">
+        <h3>Precision</h3>
+        <p>Of everything the model <em>called Positive</em>, how many actually were?</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">Precision</span> = <span class="v">TP</span> / (<span class="v">TP</span> + <span class="v">FP</span>)
+<span class="c">// "When you say positive, are you right?"</span>
+<span class="c">// High FP → low precision</span></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <span class="tag tag-FP">FP hurts precision</span>
+          <span class="tag tag-acc">Use when: false alarms are costly</span>
+        </div>
+        <p style="margin-top:10px;font-size:0.83rem;">Example use: Spam filter — you don't want legitimate emails incorrectly flagged as spam (FP = bad).</p>
+      </div>
+
+      <div class="card">
+        <h3>Recall (Sensitivity / TPR)</h3>
+        <p>Of all <em>actual Positives</em>, how many did the model catch?</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">Recall</span> = <span class="v">TP</span> / (<span class="v">TP</span> + <span class="v">FN</span>)
+<span class="c">// "Did you find all the positives?"</span>
+<span class="c">// High FN → low recall</span></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <span class="tag tag-FN">FN hurts recall</span>
+          <span class="tag tag-acc">Use when: missing positives is costly</span>
+        </div>
+        <p style="margin-top:10px;font-size:0.83rem;">Example use: Cancer screening — missing a positive (FN = dangerous) is worse than a false alarm.</p>
+      </div>
+
+    </div>
+    <div class="gap">
+
+      <div class="card">
+        <h3>F1-Score</h3>
+        <p>Harmonic mean of Precision and Recall. Balances both. Better than simple average when classes are imbalanced.</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">F1</span> = 2 × (Precision × Recall) / (Precision + Recall)
+   = 2<span class="v">TP</span> / (2<span class="v">TP</span> + <span class="v">FP</span> + <span class="v">FN</span>)
+<span class="c">// Range: 0 (worst) to 1 (best)</span>
+<span class="c">// Harmonic mean penalizes low values</span></div>
+        <div class="highlight-box" style="margin-top:12px;font-size:0.82rem;">If Precision=1.0 and Recall=0.1, Arithmetic mean=0.55 but F1=0.18 — the harmonic mean punishes imbalance between the two.</div>
+      </div>
+
+      <div class="card">
+        <h3>Specificity (TNR)</h3>
+        <p>Of all actual <em>Negatives</em>, how many did the model correctly identify? The "recall for the negative class."</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">Specificity</span> = <span class="v">TN</span> / (<span class="v">TN</span> + <span class="v">FP</span>)
+<span class="c">// "How good at spotting true negatives?"</span>
+<span class="c">// Note: 1 - Specificity = FPR (used in ROC)</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Precision–Recall Trade-off</h3>
+        <p>You usually can't maximize both. Lowering the classification threshold → more positives predicted → Recall ↑ but Precision ↓. The F1-Score and the operating context help you choose the right balance.</p>
+        <canvas id="tradeoffCanvas" width="340" height="180" style="margin-top:14px;border-radius:8px;width:100%;"></canvas>
+        <div style="display:flex;gap:16px;margin-top:8px;font-family:var(--mono);font-size:0.68rem;color:var(--muted);">
+          <div><span style="color:var(--TP);">—</span> Precision</div>
+          <div><span style="color:var(--FN);">—</span> Recall</div>
+          <div><span style="color:var(--accent);">—</span> F1-Score</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ======================== MULTICLASS ======================== -->
+<div class="section" id="sec-multiclass">
+  <div class="two-col" style="gap:28px;align-items:start;">
+    <div class="gap">
+      <div class="card">
+        <h3>4-Class Example Matrix</h3>
+        <p style="margin-bottom:16px;">Hover a cell to inspect it. <b>Diagonal = correct</b>. Off-diagonal = misclassifications.</p>
+        <div class="mc-grid-wrap">
+          <table class="mc-matrix" id="mcMatrix">
+            <thead>
+              <tr>
+                <th></th>
+                <th colspan="4" style="font-size:0.7rem;padding-bottom:2px;">Predicted →</th>
+              </tr>
+              <tr>
+                <th style="text-align:right;padding-right:8px;">Actual ↓</th>
+                <th>Class 1</th>
+                <th>Class 2</th>
+                <th>Class 3</th>
+                <th>Class 4</th>
+              </tr>
+            </thead>
+            <tbody id="mcBody"></tbody>
+          </table>
+        </div>
+        <div id="mc-tooltip" class="mc-tooltip" style="margin-top:14px;">Hover a cell above to inspect the prediction.</div>
+      </div>
+
+      <div class="card">
+        <h3>One-vs-All Decomposition</h3>
+        <p>For any class <em>k</em>, extract a binary matrix by treating class <em>k</em> as Positive and everything else as Negative.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;">
+          <button class="preset-btn" onclick="showOvA(0)">Class 1</button>
+          <button class="preset-btn" onclick="showOvA(1)">Class 2</button>
+          <button class="preset-btn" onclick="showOvA(2)">Class 3</button>
+          <button class="preset-btn" onclick="showOvA(3)">Class 4</button>
+        </div>
+        <div id="ova-display" class="formula-block" style="font-size:0.76rem;"></div>
+      </div>
+    </div>
+
+    <div class="gap">
+      <div class="card">
+        <h3>Per-Class Metrics</h3>
+        <table class="mc-metrics-table" id="mcMetricsTable"></table>
+      </div>
+      <div class="card">
+        <h3>Global Averaging Strategies</h3>
+        <div class="formula-block"><span class="k">Micro</span> F1  = global TP,FP,FN pooled
+<span class="c">         = Accuracy (for multiclass)</span>
+
+<span class="k">Macro</span> F1  = unweighted mean of class F1s
+<span class="c">         = treats all classes equally</span>
+
+<span class="k">Weighted</span>F1= class F1s weighted by support
+<span class="c">         = accounts for class imbalance</span></div>
+        <div id="global-metrics" style="margin-top:12px;" class="metrics-grid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== ROC ======================== -->
+<div class="section" id="sec-roc">
+  <div class="two-col" style="gap:28px;align-items:start;">
+    <div class="gap">
+      <div class="card">
+        <h3>Interactive ROC Curve</h3>
+        <p style="margin-bottom:14px;">Drag the <b>threshold slider</b> to see how the decision boundary trades off TPR vs FPR. The dot on the curve shows the current operating point.</p>
+        <canvas id="rocCanvas" width="500" height="400"></canvas>
+        <div style="margin-top:16px;" class="gap">
+          <div class="roc-slider-row">
+            <label>Decision threshold</label>
+            <input type="range" id="rocThreshold" min="0" max="1" step="0.01" value="0.5" oninput="updateROC()">
+            <span class="val" id="rocThreshVal">0.50</span>
+          </div>
+          <div class="roc-slider-row">
+            <label>Model skill</label>
+            <input type="range" id="rocSkill" min="0.1" max="0.95" step="0.01" value="0.7" oninput="buildROC();updateROC()">
+            <span class="val" id="rocSkillVal">0.70</span>
+          </div>
+        </div>
+        <div id="roc-readout" class="formula-block" style="margin-top:12px;font-size:0.76rem;"></div>
+      </div>
+    </div>
+    <div class="gap">
+      <div class="card">
+        <h3>Key Concepts</h3>
+        <ul>
+          <li><b>TPR (Recall/Sensitivity):</b> TP / (TP+FN) — fraction of actual positives caught</li>
+          <li><b>FPR:</b> FP / (FP+TN) — fraction of negatives incorrectly flagged = 1 − Specificity</li>
+          <li><b>Threshold:</b> The probability cutoff above which you predict "Positive"</li>
+          <li><b>Operating point:</b> One point on the ROC curve, corresponding to one threshold</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>AUC — Area Under the Curve</h3>
+        <p>AUC summarizes the entire ROC curve in a single number. Interpretation:</p>
+        <div class="formula-block" style="margin-top:12px;"><span class="k">AUC = 1.0</span> → Perfect classifier
+<span class="k">AUC = 0.9</span> → Excellent
+<span class="k">AUC = 0.8</span> → Good
+<span class="k">AUC = 0.7</span> → Fair
+<span class="k">AUC = 0.5</span> → No skill (random)
+<span class="k">AUC < 0.5</span> → Worse than random</div>
+        <div class="highlight-box" style="margin-top:14px;font-size:0.82rem;"><b>Physical meaning:</b> AUC = probability that the model ranks a random positive sample higher than a random negative sample.</div>
+      </div>
+      <div class="card">
+        <h3>Choosing a Threshold</h3>
+        <ul>
+          <li><b>High threshold (e.g. 0.9):</b> Few positive predictions → High Precision, Low Recall</li>
+          <li><b>Low threshold (e.g. 0.1):</b> Many positive predictions → High Recall, Low Precision</li>
+          <li><b>Clinical screening:</b> Use low threshold to maximize recall (don't miss any)</li>
+          <li><b>Fraud alert (manual review):</b> Use high threshold to maximize precision (only flag real fraud)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== WHEN TO USE ======================== -->
+<div class="section" id="sec-when">
+  <div class="gap">
+    <div class="scenario-grid">
+      <div class="scenario-card danger">
+        <h4>🏥 Medical Diagnosis / Disease Screening</h4>
+        <p>Missing a disease (FN) is far worse than a false alarm (FP) — the patient can be retested. Prioritize catching every positive.</p>
+        <div class="use-metric">→ Maximize Recall (Sensitivity). Monitor Specificity.</div>
+      </div>
+      <div class="scenario-card warning">
+        <h4>📧 Spam Filtering</h4>
+        <p>Incorrectly flagging a real email as spam (FP) is annoying and costly. Missing spam (FN) is acceptable — user sees more spam but loses no real emails.</p>
+        <div class="use-metric">→ Maximize Precision. High Specificity.</div>
+      </div>
+      <div class="scenario-card balanced">
+        <h4>💳 Fraud Detection</h4>
+        <p>Balance matters: missing fraud (FN) costs money, but too many false alarms (FP) frustrates customers. Need both at acceptable levels.</p>
+        <div class="use-metric">→ F1-Score or AUC-ROC. Tune threshold to business cost.</div>
+      </div>
+      <div class="scenario-card info">
+        <h4>🔍 Information Retrieval / Search</h4>
+        <p>You want the returned results to be relevant (Precision) AND to have captured most of the relevant documents (Recall). F1 balances them.</p>
+        <div class="use-metric">→ Precision@k, Recall@k, F1-Score.</div>
+      </div>
+      <div class="scenario-card danger">
+        <h4>🧬 Drug Safety (Rare Events)</h4>
+        <p>Extremely imbalanced: very few adverse events. Accuracy is useless. Need to detect rare but critical positive cases without excessive false alarms.</p>
+        <div class="use-metric">→ Precision-Recall curve + AUC-PR. Weighted F1.</div>
+      </div>
+      <div class="scenario-card balanced">
+        <h4>🖼️ Multiclass Image Classification</h4>
+        <p>Per-class breakdown reveals which categories confuse the model. Off-diagonal entries show systematic error patterns worth addressing with more data or augmentation.</p>
+        <div class="use-metric">→ Macro F1. Per-class recall. Confusion matrix heatmap.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>The Confusion Matrix Decision Guide</h3>
+      <div class="two-col" style="gap:20px;margin-top:16px;">
+        <div>
+          <p style="font-weight:600;margin-bottom:8px;">Ask yourself: which error is more costly?</p>
+          <div class="formula-block"><span class="k">FP costly</span> → Maximize Precision
+<span class="c">         (spam filter, legal evidence)</span>
+
+<span class="k">FN costly</span> → Maximize Recall
+<span class="c">         (cancer screening, safety systems)</span>
+
+<span class="k">Both costly</span> → F1-Score or set threshold
+<span class="c">         based on cost ratio FP:FN</span>
+
+<span class="k">Imbalanced</span> → Never trust Accuracy alone
+<span class="c">         Use Macro/Weighted F1 or AUC-PR</span></div>
+        </div>
+        <div>
+          <p style="font-weight:600;margin-bottom:8px;">Normalized vs raw matrix:</p>
+          <ul>
+            <li><b>Raw counts:</b> Shows absolute volume — good for debugging data issues</li>
+            <li><b>Normalized by row</b> (recall per class): Shows how well each class is classified regardless of support</li>
+            <li><b>Normalized by column</b> (precision per class): Shows what fraction of each predicted class was correct</li>
+            <li>For imbalanced data, <b>always normalize</b> before interpreting the heatmap</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== PYTHON ======================== -->
+<div class="section" id="sec-python">
+  <div class="gap">
+    <div class="card">
+      <h3>Computing the Confusion Matrix with scikit-learn</h3>
+      <div class="code-block"><span class="py-kw">from</span> sklearn.metrics <span class="py-kw">import</span> (
+    confusion_matrix, classification_report,
+    ConfusionMatrixDisplay, roc_curve, auc
+)
+<span class="py-kw">import</span> matplotlib.pyplot <span class="py-kw">as</span> plt
+<span class="py-kw">import</span> numpy <span class="py-kw">as</span> np
+
+<span class="py-cmt"># --- Your true labels and model predictions ---</span>
+y_true = [<span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">0</span>]
+y_pred = [<span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">1</span>, <span class="py-num">0</span>, <span class="py-num">1</span>, <span class="py-num">0</span>]
+
+<span class="py-cmt"># --- Binary confusion matrix ---</span>
+<span class="py-cmt"># NOTE: sklearn uses [actual] rows × [predicted] cols</span>
+<span class="py-cmt"># [[TN, FP],</span>
+<span class="py-cmt">#  [FN, TP]]</span>
+cm = <span class="py-fn">confusion_matrix</span>(y_true, y_pred)
+<span class="py-fn">print</span>(cm)
+
+<span class="py-cmt"># --- Visualize as heatmap ---</span>
+disp = <span class="py-fn">ConfusionMatrixDisplay</span>(confusion_matrix=cm,
+                               display_labels=[<span class="py-str">'Negative'</span>, <span class="py-str">'Positive'</span>])
+disp.<span class="py-fn">plot</span>(cmap=<span class="py-str">'Blues'</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Confusion Matrix'</span>)
+plt.<span class="py-fn">show</span>()
+
+<span class="py-cmt"># --- Normalized version (row-normalized = recall per class) ---</span>
+cm_norm = <span class="py-fn">confusion_matrix</span>(y_true, y_pred, normalize=<span class="py-str">'true'</span>)
+disp2 = <span class="py-fn">ConfusionMatrixDisplay</span>(confusion_matrix=cm_norm)
+disp2.<span class="py-fn">plot</span>(cmap=<span class="py-str">'Greens'</span>, values_format=<span class="py-str">'.2%'</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'Normalized Confusion Matrix'</span>)
+plt.<span class="py-fn">show</span>()
+
+<span class="py-cmt"># --- All metrics at once ---</span>
+<span class="py-fn">print</span>(<span class="py-fn">classification_report</span>(
+    y_true, y_pred,
+    target_names=[<span class="py-str">'Negative'</span>, <span class="py-str">'Positive'</span>]
+))
+<span class="py-cmt"># outputs: precision, recall, f1, support per class</span>
+<span class="py-cmt"># + micro/macro/weighted averages</span>
+
+<span class="py-cmt"># --- ROC Curve (binary, needs probability scores) ---</span>
+y_scores = [<span class="py-num">0.9</span>, <span class="py-num">0.2</span>, <span class="py-num">0.8</span>, <span class="py-num">0.4</span>, <span class="py-num">0.1</span>,
+            <span class="py-num">0.85</span>, <span class="py-num">0.65</span>, <span class="py-num">0.3</span>, <span class="py-num">0.75</span>, <span class="py-num">0.2</span>]
+fpr, tpr, thresholds = <span class="py-fn">roc_curve</span>(y_true, y_scores)
+roc_auc = <span class="py-fn">auc</span>(fpr, tpr)
+
+plt.<span class="py-fn">figure</span>()
+plt.<span class="py-fn">plot</span>(fpr, tpr, label=<span class="py-fn">f</span><span class="py-str">'AUC = {roc_auc:.2f}'</span>)
+plt.<span class="py-fn">plot</span>([<span class="py-num">0</span>,<span class="py-num">1</span>], [<span class="py-num">0</span>,<span class="py-num">1</span>], <span class="py-str">'k--'</span>, label=<span class="py-str">'No skill'</span>)
+plt.<span class="py-fn">xlabel</span>(<span class="py-str">'False Positive Rate'</span>)
+plt.<span class="py-fn">ylabel</span>(<span class="py-str">'True Positive Rate'</span>)
+plt.<span class="py-fn">title</span>(<span class="py-str">'ROC Curve'</span>)
+plt.<span class="py-fn">legend</span>()
+plt.<span class="py-fn">show</span>()</div>
+    </div>
+
+    <div class="card">
+      <h3>Key scikit-learn Notes</h3>
+      <div class="two-col">
+        <div>
+          <p style="font-weight:600;margin-bottom:8px;">Matrix orientation in sklearn</p>
+          <p>sklearn's <code style="font-family:var(--mono);font-size:0.85em;background:var(--surface2);padding:2px 6px;border-radius:4px;">confusion_matrix</code> uses rows=actual, cols=predicted — the <b>transpose</b> of what many textbooks show. The math is identical.</p>
+          <div class="formula-block" style="margin-top:10px;font-size:0.72rem;"><span class="c"># sklearn layout:</span>
+[[<span class="v">TN</span>, <span class="k">FP</span>],
+ [<span class="k">FN</span>, <span class="v">TP</span>]]
+
+<span class="c"># textbook layout (this guide):</span>
+[[<span class="v">TP</span>, <span class="k">FN</span>],
+ [<span class="k">FP</span>, <span class="v">TN</span>]]</div>
+        </div>
+        <div>
+          <p style="font-weight:600;margin-bottom:8px;">normalize= options</p>
+          <div class="formula-block" style="font-size:0.72rem;"><span class="py-str">'true'</span>   <span class="c">→ row-normalize (recall per class)</span>
+<span class="py-str">'pred'</span>   <span class="c">→ col-normalize (precision per class)</span>
+<span class="py-str">'all'</span>    <span class="c">→ all entries sum to 1</span>
+<span class="py-kw">None</span>     <span class="c">→ raw counts (default)</span></div>
+          <p style="margin-top:10px;font-size:0.83rem;">Use <code style="font-family:var(--mono);font-size:0.82em;background:var(--surface2);padding:2px 6px;border-radius:4px;">normalize='true'</code> for imbalanced datasets to make the heatmap meaningful.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(id.replace('-',' ').toLowerCase().slice(0,5))) t.classList.add('active');
+  });
+  // special cases
+  if (id === 'metrics') drawTradeoff();
+  if (id === 'roc') { buildROC(); updateROC(); }
+  if (id === 'multiclass') buildMC();
+}
+
+// ============================================================
+// BINARY MATRIX
+// ============================================================
+const vals = { TP:45, FN:15, FP:8, TN:32 };
+
+const explainers = {
+  TP: '<strong>True Positive (TP):</strong> Model predicted <em>Positive</em> → it actually <em>was Positive</em>. ✓ Correct hit. Increases Recall and Precision.',
+  TN: '<strong>True Negative (TN):</strong> Model predicted <em>Negative</em> → it actually <em>was Negative</em>. ✓ Correct rejection. Increases Specificity.',
+  FP: '<strong>False Positive (FP) — Type I Error:</strong> Model predicted <em>Positive</em> → it actually <em>was Negative</em>. ✗ False alarm. Hurts Precision and Specificity.',
+  FN: '<strong>False Negative (FN) — Type II Error:</strong> Model predicted <em>Negative</em> → it actually <em>was Positive</em>. ✗ Missed detection. Hurts Recall.'
+};
+
+function highlight(cell) {
+  document.getElementById('cell-explainer').innerHTML = explainers[cell];
+}
+
+function changeCell(cell, delta) {
+  vals[cell] = Math.max(0, vals[cell] + delta);
+  render();
+}
+
+function setPreset(name) {
+  const presets = {
+    good:       { TP:45, FN:5,  FP:8,  TN:42 },
+    biased:     { TP:58, FN:2,  FP:28, TN:12 },
+    precise:    { TP:25, FN:35, FP:2,  TN:38 },
+    random:     { TP:30, FN:30, FP:30, TN:30 },
+    imbalanced: { TP:2,  FN:8,  FP:1,  TN:89 },
+  };
+  Object.assign(vals, presets[name]);
+  render();
+}
+
+function render() {
+  ['TP','FN','FP','TN'].forEach(k => {
+    document.getElementById('val-'+k).textContent = vals[k];
+  });
+  const {TP,FN,FP,TN} = vals;
+  const total = TP+FN+FP+TN;
+  const safe = v => isNaN(v)||!isFinite(v) ? 0 : v;
+
+  const accuracy  = safe((TP+TN)/total);
+  const precision = safe(TP/(TP+FP));
+  const recall    = safe(TP/(TP+FN));
+  const f1        = safe(2*precision*recall/(precision+recall));
+  const specificity = safe(TN/(TN+FP));
+
+  const metrics = [
+    { name:'Accuracy',    val:accuracy,   formula:`(TP+TN)/total = ${TP+TN}/${total}` },
+    { name:'Precision',   val:precision,  formula:`TP/(TP+FP) = ${TP}/${TP+FP}` },
+    { name:'Recall',      val:recall,     formula:`TP/(TP+FN) = ${TP}/${TP+FN}` },
+    { name:'F1-Score',    val:f1,         formula:`2·P·R/(P+R)` },
+    { name:'Specificity', val:specificity,formula:`TN/(TN+FP) = ${TN}/${TN+FP}` },
+    { name:'FPR',         val:safe(FP/(FP+TN)), formula:`FP/(FP+TN) = ${FP}/${FP+TN}` },
+  ];
+
+  const panel = document.getElementById('metricsPanel');
+  panel.innerHTML = metrics.map(m => `
+    <div class="metric-card">
+      <div class="metric-name">${m.name}</div>
+      <div class="metric-val">${(m.val*100).toFixed(1)}%</div>
+      <div class="metric-formula">${m.formula}</div>
+      <div class="metric-bar"><div class="metric-bar-fill" style="width:${m.val*100}%"></div></div>
+    </div>`).join('');
+
+  // totals
+  document.getElementById('totals-readout').innerHTML =
+`<span class="k">Total samples</span> = TP+FP+FN+TN = <span class="v">${total}</span>
+<span class="k">Actual Positive</span> = TP+FN        = <span class="v">${TP+FN}</span>  (${(100*(TP+FN)/total).toFixed(1)}%)
+<span class="k">Actual Negative</span> = TN+FP        = <span class="v">${TN+FP}</span>  (${(100*(TN+FP)/total).toFixed(1)}%)
+<span class="k">Predicted Pos</span>   = TP+FP        = <span class="v">${TP+FP}</span>
+<span class="k">Predicted Neg</span>   = TN+FN        = <span class="v">${TN+FN}</span>`;
+}
+
+// ============================================================
+// PRECISION-RECALL TRADE-OFF CHART
+// ============================================================
+function drawTradeoff() {
+  const canvas = document.getElementById('tradeoffCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#f5f2ee';
+  ctx.fillRect(0,0,W,H);
+
+  const pad = 30;
+  ctx.strokeStyle = '#d8d0c4';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.stroke();
+
+  // axis labels
+  ctx.fillStyle = '#8a7f74';
+  ctx.font = '10px IBM Plex Mono';
+  ctx.fillText('Threshold →', W/2-30, H-8);
+
+  const n = 80;
+  const drawCurve = (colorStr, fn) => {
+    ctx.strokeStyle = colorStr;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i=0;i<=n;i++) {
+      const t = i/n;
+      const y = fn(t);
+      const px = pad + t*(W-2*pad);
+      const py = H-pad - y*(H-2*pad);
+      i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  };
+
+  // Simulated curves
+  drawCurve('#2d6a4f', t => Math.max(0, Math.min(1, 1 - t*1.2 + 0.1)));   // precision
+  drawCurve('#7b3f00', t => Math.max(0, Math.min(1, Math.pow(1-t, 0.3)))); // recall  
+  drawCurve('#5a3e8f', t => {                                                // F1
+    const p = Math.max(0, Math.min(1, 1 - t*1.2 + 0.1));
+    const r = Math.max(0, Math.min(1, Math.pow(1-t, 0.3)));
+    return p+r>0 ? 2*p*r/(p+r) : 0;
+  });
+
+  // Threshold line
+  ctx.strokeStyle = '#d8d0c4';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4,4]);
+  const tx = pad + 0.5*(W-2*pad);
+  ctx.beginPath(); ctx.moveTo(tx,pad); ctx.lineTo(tx,H-pad); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ============================================================
+// MULTICLASS
+// ============================================================
+const MC = [
+  [52, 2,  5,  1],
+  [3,  28, 2,  1],
+  [7,  2,  25, 12],
+  [2,  0,  9,  40],
+];
+const mcLabels = ['Cat', 'Dog', 'Bird', 'Fish'];
+const mcSupport = MC[0].map((_,j) => MC.reduce((s,r)=>s+r[j],0)); // col sums = actual
+
+function buildMC() {
+  const tbody = document.getElementById('mcBody');
+  tbody.innerHTML = '';
+  const maxOff = Math.max(...MC.flatMap((r,i)=>r.filter((_,j)=>i!==j)));
+  MC.forEach((row,i) => {
+    const tr = document.createElement('tr');
+    // row label
+    const th = document.createElement('th');
+    th.style.textAlign='right'; th.style.paddingRight='8px'; th.style.fontSize='0.68rem';
+    th.textContent = mcLabels[i];
+    tr.appendChild(th);
+    row.forEach((v,j) => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      if (i===j) {
+        td.className = 'mc-diag';
+      } else {
+        const level = Math.round((v/maxOff)*3);
+        td.className = `mc-off mc-off-${level}`;
+      }
+      td.onmouseenter = () => {
+        const actual = mcLabels[j]; // col = actual
+        const predicted = mcLabels[i]; // row = predicted
+        const tip = document.getElementById('mc-tooltip');
+        if (i===j) {
+          const acc = (v/mcSupport[j]*100).toFixed(1);
+          tip.innerHTML = `<span class="t-class">✓ Correct:</span> Actual=<span class="t-val">${actual}</span>, Predicted=<span class="t-val">${predicted}</span><br>Count: <span class="t-val">${v}</span> / ${mcSupport[j]} actual ${actual}s = <span class="t-val">${acc}% recall</span>`;
+        } else {
+          tip.innerHTML = `<span class="t-err">✗ Error:</span> Actual=<span class="t-val">${actual}</span>, but Predicted=<span class="t-err">${predicted}</span><br>Count: <span class="t-err">${v}</span> — model confused ${actual} with ${predicted}`;
+        }
+      };
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  buildMCMetrics();
+}
+
+function buildMCMetrics() {
+  const n = MC.length;
+  const colSums = Array(n).fill(0); // actual per class
+  const rowSums = Array(n).fill(0); // predicted per class
+  const diag = Array(n).fill(0);
+  let total = 0;
+  MC.forEach((row,i) => row.forEach((v,j) => {
+    rowSums[i] += v;
+    colSums[j] += v;
+    if(i===j) diag[i]=v;
+    total += v;
+  }));
+
+  const precision = Array(n).fill(0).map((_,i) => rowSums[i]>0 ? diag[i]/rowSums[i] : 0);
+  const recall    = Array(n).fill(0).map((_,i) => colSums[i]>0 ? diag[i]/colSums[i] : 0);
+  const f1        = Array(n).fill(0).map((_,i) => precision[i]+recall[i]>0 ? 2*precision[i]*recall[i]/(precision[i]+recall[i]) : 0);
+
+  const tbl = document.getElementById('mcMetricsTable');
+  tbl.innerHTML = `<tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr>`;
+  n.toString(); // just to reference n
+  Array.from({length:n}).forEach((_,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${mcLabels[i]}</td><td>${(precision[i]*100).toFixed(1)}%</td><td>${(recall[i]*100).toFixed(1)}%</td><td>${(f1[i]*100).toFixed(1)}%</td><td>${colSums[i]}</td>`;
+    tbl.appendChild(tr);
+  });
+
+  const macroP = precision.reduce((a,b)=>a+b)/n;
+  const macroR = recall.reduce((a,b)=>a+b)/n;
+  const macroF1 = f1.reduce((a,b)=>a+b)/n;
+  const microTP = diag.reduce((a,b)=>a+b);
+  const microF1 = microTP/total;
+  const wF1 = f1.reduce((s,v,i)=>s+v*colSums[i]/total,0);
+
+  const gm = document.getElementById('global-metrics');
+  gm.innerHTML = [
+    {name:'Micro F1 (=Acc)',val:microF1},
+    {name:'Macro F1',val:macroF1},
+    {name:'Weighted F1',val:wF1},
+  ].map(m=>`<div class="metric-card"><div class="metric-name">${m.name}</div><div class="metric-val">${(m.val*100).toFixed(1)}%</div><div class="metric-bar"><div class="metric-bar-fill" style="width:${m.val*100}%"></div></div></div>`).join('');
+}
+
+function showOvA(cls) {
+  const n = MC.length;
+  const colSums = Array(n).fill(0);
+  const rowSums = Array(n).fill(0);
+  let total=0, TP=0;
+  MC.forEach((row,i)=>row.forEach((v,j)=>{
+    colSums[j]+=v; rowSums[i]+=v; total+=v;
+    if(i===j&&i===cls) TP=v;
+  }));
+  const FP = rowSums[cls]-TP;
+  const FN = colSums[cls]-TP;
+  const TN = total-TP-FP-FN;
+
+  const el = document.getElementById('ova-display');
+  el.innerHTML = `<span class="c">// One-vs-All for class: ${mcLabels[cls]}</span>
+Positive = "${mcLabels[cls]}", Negative = everything else
+
+            Predicted Pos  Predicted Neg
+Actual Pos  <span class="v">TP = ${TP}</span>           <span class="k">FN = ${FN}</span>
+Actual Neg  <span class="k">FP = ${FP}</span>           <span class="v">TN = ${TN}</span>
+
+Precision  = ${TP}/(${TP}+${FP}) = <span class="v">${(TP/(TP+FP)*100).toFixed(1)}%</span>
+Recall     = ${TP}/(${TP}+${FN}) = <span class="v">${(TP/(TP+FN)*100).toFixed(1)}%</span>
+F1-Score   = <span class="v">${(2*TP/(2*TP+FP+FN)*100).toFixed(1)}%</span>`;
+}
+
+// ============================================================
+// ROC CURVE
+// ============================================================
+let rocData = { fpr:[], tpr:[], thresholds:[] };
+
+function sigmoid(x) { return 1/(1+Math.exp(-x)); }
+
+function buildROC() {
+  const skill = parseFloat(document.getElementById('rocSkill').value);
+  document.getElementById('rocSkillVal').textContent = skill.toFixed(2);
+  const N = 200;
+  // Generate synthetic score distributions
+  const posScores = Array.from({length:100}, () => {
+    const u = Math.random(), v = Math.random();
+    const g = Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+    return sigmoid(g * 1.5 + skill*3);
+  });
+  const negScores = Array.from({length:100}, () => {
+    const u = Math.random(), v = Math.random();
+    const g = Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+    return sigmoid(g * 1.5 - skill*3);
+  });
+
+  const thresholds = Array.from({length:N+1}, (_,i)=>i/N).reverse();
+  const points = thresholds.map(t => {
+    const tp = posScores.filter(s=>s>=t).length;
+    const fp = negScores.filter(s=>s>=t).length;
+    return { tpr: tp/100, fpr: fp/100, t };
+  });
+
+  rocData.fpr = points.map(p=>p.fpr);
+  rocData.tpr = points.map(p=>p.tpr);
+  rocData.thresholds = points.map(p=>p.t);
+}
+
+function updateROC() {
+  const t = parseFloat(document.getElementById('rocThreshold').value);
+  document.getElementById('rocThreshVal').textContent = t.toFixed(2);
+
+  // Find nearest threshold idx
+  let idx = rocData.thresholds.reduce((best,v,i)=>
+    Math.abs(v-t)<Math.abs(rocData.thresholds[best]-t)?i:best, 0);
+
+  const canvas = document.getElementById('rocCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const pad=50;
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  // AUC fill
+  ctx.beginPath();
+  ctx.moveTo(pad, H-pad);
+  rocData.fpr.forEach((fx,i)=>{
+    const px=pad+fx*(W-2*pad);
+    const py=H-pad-rocData.tpr[i]*(H-2*pad);
+    i===0?ctx.lineTo(px,py):ctx.lineTo(px,py);
+  });
+  ctx.lineTo(W-pad,H-pad);
+  ctx.closePath();
+  ctx.fillStyle='rgba(90,62,143,0.1)';
+  ctx.fill();
+
+  // Grid
+  ctx.strokeStyle='#e8e0d8'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const x=pad+i/4*(W-2*pad), y=H-pad-i/4*(H-2*pad);
+    ctx.beginPath();ctx.moveTo(x,pad);ctx.lineTo(x,H-pad);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(W-pad,y);ctx.stroke();
+  }
+
+  // No-skill diagonal
+  ctx.strokeStyle='#b0a090'; ctx.lineWidth=1.5; ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.moveTo(pad,H-pad);ctx.lineTo(W-pad,pad);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ROC curve
+  ctx.strokeStyle='#5a3e8f'; ctx.lineWidth=2.5;
+  ctx.beginPath();
+  rocData.fpr.forEach((fx,i)=>{
+    const px=pad+fx*(W-2*pad), py=H-pad-rocData.tpr[i]*(H-2*pad);
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  });
+  ctx.stroke();
+
+  // Axes
+  ctx.strokeStyle='#1a1612'; ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,H-pad);ctx.lineTo(W-pad,H-pad);ctx.stroke();
+
+  // Labels
+  ctx.fillStyle='#4a4037'; ctx.font='11px IBM Plex Mono';
+  ctx.fillText('False Positive Rate',W/2-60,H-12);
+  ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText('True Positive Rate',0,0);ctx.restore();
+  [0,0.25,0.5,0.75,1].forEach(v=>{
+    ctx.fillStyle='#8a7f74'; ctx.font='10px IBM Plex Mono';
+    ctx.fillText(v.toFixed(2),pad+v*(W-2*pad)-10,H-pad+14);
+    ctx.fillText(v.toFixed(2),pad-36,H-pad-v*(H-2*pad)+4);
+  });
+
+  // Current point
+  const cx=pad+rocData.fpr[idx]*(W-2*pad);
+  const cy=H-pad-rocData.tpr[idx]*(H-2*pad);
+  ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);
+  ctx.fillStyle='#f76a8a';ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+
+  // AUC label
+  const auc = computeAUC();
+  ctx.fillStyle='#5a3e8f'; ctx.font='bold 13px IBM Plex Mono';
+  ctx.fillText(`AUC = ${auc.toFixed(3)}`,pad+10,pad+20);
+
+  // Labels
+  ctx.fillStyle='#8a7f74'; ctx.font='10px IBM Plex Mono';
+  ctx.fillText('Perfect',pad+2,pad+14);
+  ctx.fillText('No skill',W-pad-55,H-pad-30);
+
+  // Readout
+  const tpr=rocData.tpr[idx], fpr=rocData.fpr[idx];
+  document.getElementById('roc-readout').innerHTML =
+`<span class="k">Threshold</span>  = <span class="v">${t.toFixed(2)}</span>
+<span class="k">TPR (Recall)</span> = <span class="v">${(tpr*100).toFixed(1)}%</span>   <span class="c">↑ want high</span>
+<span class="k">FPR</span>           = <span class="v">${(fpr*100).toFixed(1)}%</span>   <span class="c">↓ want low</span>
+<span class="k">Specificity</span>  = <span class="v">${((1-fpr)*100).toFixed(1)}%</span>  <span class="c">= 1 - FPR</span>
+<span class="k">AUC</span>           = <span class="v">${auc.toFixed(3)}</span>`;
+}
+
+function computeAUC() {
+  let auc=0;
+  for(let i=1;i<rocData.fpr.length;i++){
+    auc += (rocData.fpr[i-1]-rocData.fpr[i])*(rocData.tpr[i]+rocData.tpr[i-1])/2;
+  }
+  return Math.abs(auc);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  render();
+  drawTradeoff();
+  // tab init
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const sections=['binary','metrics','multiclass','roc','when','python'];
+    t.onclick=()=>showSection(sections[i]);
+  });
+});
+</script>
+</body>
+</html>
