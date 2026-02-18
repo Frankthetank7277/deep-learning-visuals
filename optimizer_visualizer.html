@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizer Zoo — Interactive Deep Learning Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --muted: #6a6a88;
+    --accent: #7c6af7;
+    --accent2: #f76a8a;
+    --accent3: #6af7c4;
+    --accent4: #f7c46a;
+    --accent5: #6ab8f7;
+    --accent6: #f76aee;
+    --code-bg: #0d0d18;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- HEADER ---- */
+  header {
+    padding: 48px 60px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,106,247,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  header h1 {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  header h1 span { color: var(--accent); }
+  header p {
+    margin-top: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- NAV TABS ---- */
+  nav {
+    display: flex;
+    gap: 4px;
+    padding: 20px 60px 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  .tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    padding: 10px 18px 12px;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .tab:hover { color: var(--text); background: var(--surface); }
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .tab .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: middle;
+  }
+
+  /* ---- MAIN CONTENT ---- */
+  main { padding: 40px 60px; max-width: 1400px; }
+
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* ---- TWO-COL LAYOUT ---- */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* ---- VIZ PANEL ---- */
+  .viz-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .viz-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .viz-toolbar .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #9180fa; }
+
+  canvas#lossCanvas {
+    display: block;
+    width: 100%;
+    image-rendering: pixelated;
+  }
+
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .param-row label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    min-width: 60px;
+  }
+  .param-row input[type=range] {
+    flex: 1;
+    min-width: 80px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .param-row .val {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent3);
+    width: 46px;
+    text-align: right;
+  }
+
+  /* ---- INFO PANEL ---- */
+  .info-panel { display: flex; flex-direction: column; gap: 20px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .card h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .card p, .card li {
+    font-size: 0.88rem;
+    line-height: 1.7;
+    color: #b8b8cc;
+  }
+  .card ul { padding-left: 18px; }
+  .card li { margin-bottom: 4px; }
+  .card li b { color: var(--text); font-weight: 600; }
+
+  /* ---- FORMULA BLOCK ---- */
+  .formula {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 14px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.9;
+    color: #c8c8e8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .formula .key { color: var(--accent4); }
+  .formula .val { color: var(--accent3); }
+  .formula .comment { color: var(--muted); }
+
+  /* ---- BADGE TAGS ---- */
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .tag.pro { background: rgba(106,247,196,0.12); color: var(--accent3); border: 1px solid rgba(106,247,196,0.3); }
+  .tag.con { background: rgba(247,106,138,0.12); color: var(--accent2); border: 1px solid rgba(247,106,138,0.3); }
+
+  /* ---- STEP LOG ---- */
+  .step-log {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    line-height: 1.7;
+    color: var(--muted);
+    height: 120px;
+    overflow-y: auto;
+    margin-top: 4px;
+  }
+  .step-log span.step-n { color: var(--accent4); }
+  .step-log span.step-loss { color: var(--accent2); }
+  .step-log span.step-pos { color: var(--accent3); }
+
+  /* ---- COMPARISON TABLE ---- */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .compare-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    color: #b8b8cc;
+    vertical-align: top;
+  }
+  .compare-table tr:hover td { background: var(--surface2); }
+  .compare-table td:first-child { font-weight: 700; color: var(--text); }
+  .rating { display: flex; gap: 3px; }
+  .star { font-size: 0.7rem; }
+  .star.on { color: var(--accent4); }
+  .star.off { color: var(--border); }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ---- CHOICE GUIDE ---- */
+  .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .choice-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    transition: border-color 0.2s;
+  }
+  .choice-card:hover { border-color: var(--accent); }
+  .choice-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; }
+  .choice-card p { font-size: 0.82rem; color: #a8a8c0; line-height: 1.6; }
+  .choice-card .rec { margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--accent); }
+
+  .flowchart {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .flowchart h3 { font-size: 1rem; font-weight: 700; margin-bottom: 20px; }
+  .flow-nodes { display: flex; flex-direction: column; gap: 0; }
+  .flow-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-left: 2px solid var(--border);
+    padding-left: 20px;
+    margin-left: 10px;
+    position: relative;
+  }
+  .flow-node::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 20px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+  }
+  .flow-node:last-child { border-left-color: transparent; }
+  .flow-q { font-weight: 700; font-size: 0.88rem; }
+  .flow-a { font-size: 0.8rem; color: var(--muted); margin-top: 3px; }
+  .flow-a span { color: var(--accent); font-family: 'DM Mono', monospace; }
+
+  @media (max-width: 900px) {
+    header, nav, main { padding-left: 20px; padding-right: 20px; }
+    .two-col { grid-template-columns: 1fr; }
+    .choice-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Optimizer <span>Zoo</span></h1>
+  <p>// interactive guide to gradient-based optimization algorithms</p>
+</header>
+
+<nav id="navBar">
+  <button class="tab active" onclick="showSection('sgd')" data-id="sgd">
+    <span class="dot" style="background:#7c6af7"></span>SGD
+  </button>
+  <button class="tab" onclick="showSection('momentum')" data-id="momentum">
+    <span class="dot" style="background:#f76a8a"></span>Momentum
+  </button>
+  <button class="tab" onclick="showSection('nesterov')" data-id="nesterov">
+    <span class="dot" style="background:#6af7c4"></span>Nesterov
+  </button>
+  <button class="tab" onclick="showSection('adagrad')" data-id="adagrad">
+    <span class="dot" style="background:#f7c46a"></span>AdaGrad
+  </button>
+  <button class="tab" onclick="showSection('rmsprop')" data-id="rmsprop">
+    <span class="dot" style="background:#6ab8f7"></span>RMSProp
+  </button>
+  <button class="tab" onclick="showSection('adam')" data-id="adam">
+    <span class="dot" style="background:#f76aee"></span>Adam
+  </button>
+  <button class="tab" onclick="showSection('compare')" data-id="compare">
+    <span class="dot" style="background:#aaa"></span>Compare All
+  </button>
+  <button class="tab" onclick="showSection('choose')" data-id="choose">
+    <span class="dot" style="background:#aaa"></span>How to Choose
+  </button>
+</nav>
+
+<main>
+
+<!-- ===================== SGD ===================== -->
+<div class="section active" id="sec-sgd">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">loss landscape — 2D</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('sgd')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('sgd')">↺ Reset</button>
+            <select class="btn" id="sgd-landscape" onchange="resetOptimizer('sgd')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-sgd" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="sgd-lr" min="0.001" max="0.5" step="0.001" value="0.05" oninput="updateVal(this,'sgd-lr-val')">
+          <span class="val" id="sgd-lr-val">0.050</span>
+        </div>
+        <div class="param-row">
+          <label>batch noise</label>
+          <input type="range" id="sgd-noise" min="0" max="0.5" step="0.01" value="0.1" oninput="updateVal(this,'sgd-noise-val')">
+          <span class="val" id="sgd-noise-val">0.100</span>
+        </div>
+        <div class="step-log" id="log-sgd"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>Stochastic Gradient Descent</h3>
+        <p>The simplest optimizer. At each step, compute the gradient of the loss and take a step proportional to the learning rate in the downhill direction. "Stochastic" means we use a mini-batch of data instead of the full dataset, introducing helpful noise that can escape local minima.</p>
+        <div class="tags">
+          <span class="tag pro">simple</span>
+          <span class="tag pro">memory efficient</span>
+          <span class="tag pro">generalises well</span>
+          <span class="tag con">slow convergence</span>
+          <span class="tag con">lr sensitive</span>
+          <span class="tag con">oscillates in valleys</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="key">g</span><span class="val">ₜ</span> = ∇L(θₜ)          <span class="comment">// gradient</span>
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − <span class="key">η</span> · gₜ  <span class="comment">// param update</span></div>
+        <p style="margin-top:12px;">Where <b>η</b> is the learning rate. That's it — pure gradient descent with no memory of past steps.</p>
+      </div>
+      <div class="card">
+        <h3>Key Intuition</h3>
+        <ul>
+          <li><b>High lr:</b> Fast but unstable, may oscillate or diverge</li>
+          <li><b>Low lr:</b> Stable but painfully slow</li>
+          <li><b>Narrow valleys:</b> SGD zigzags across walls instead of moving along the valley floor</li>
+          <li><b>Noise:</b> Mini-batch noise acts as implicit regularization, often helping generalization</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MOMENTUM ===================== -->
+<div class="section" id="sec-momentum">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">momentum — accelerated descent</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('momentum')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('momentum')">↺ Reset</button>
+            <select class="btn" id="momentum-landscape" onchange="resetOptimizer('momentum')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-momentum" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="momentum-lr" min="0.001" max="0.3" step="0.001" value="0.03" oninput="updateVal(this,'momentum-lr-val')">
+          <span class="val" id="momentum-lr-val">0.030</span>
+        </div>
+        <div class="param-row">
+          <label>β (friction)</label>
+          <input type="range" id="momentum-beta" min="0.1" max="0.99" step="0.01" value="0.9" oninput="updateVal(this,'momentum-beta-val')">
+          <span class="val" id="momentum-beta-val">0.900</span>
+        </div>
+        <div class="step-log" id="log-momentum"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>SGD with Momentum</h3>
+        <p>Adds a "velocity" term that accumulates past gradients like a ball rolling downhill. Instead of just the current gradient, we update based on a running average of gradients. This dampens oscillations in noisy dimensions and accelerates in consistent directions.</p>
+        <div class="tags">
+          <span class="tag pro">faster in valleys</span>
+          <span class="tag pro">dampens oscillation</span>
+          <span class="tag pro">escapes local minima</span>
+          <span class="tag con">overshoots minima</span>
+          <span class="tag con">β needs tuning</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="key">v</span><span class="val">ₜ</span> = β·vₜ₋₁ + (1−β)·∇L(θₜ) <span class="comment">// velocity</span>
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − η·vₜ            <span class="comment">// update</span></div>
+        <p style="margin-top:12px;"><b>β ≈ 0.9</b> means ~90% of old velocity survives each step. Think of it as exponential smoothing of the gradient signal.</p>
+      </div>
+      <div class="card">
+        <h3>Physical Analogy</h3>
+        <ul>
+          <li><b>β = 0:</b> Pure SGD — no memory</li>
+          <li><b>β = 0.9:</b> Heavy ball rolling — builds speed on slopes, hard to stop</li>
+          <li><b>β = 0.99:</b> Nearly frictionless — very fast but overshoots badly</li>
+          <li><b>Oscillations:</b> Momentum cancels out cross-gradient zigzags while amplifying the net downhill direction</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== NESTEROV ===================== -->
+<div class="section" id="sec-nesterov">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">nesterov — lookahead gradient</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('nesterov')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('nesterov')">↺ Reset</button>
+            <select class="btn" id="nesterov-landscape" onchange="resetOptimizer('nesterov')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-nesterov" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="nesterov-lr" min="0.001" max="0.3" step="0.001" value="0.03" oninput="updateVal(this,'nesterov-lr-val')">
+          <span class="val" id="nesterov-lr-val">0.030</span>
+        </div>
+        <div class="param-row">
+          <label>β</label>
+          <input type="range" id="nesterov-beta" min="0.1" max="0.99" step="0.01" value="0.9" oninput="updateVal(this,'nesterov-beta-val')">
+          <span class="val" id="nesterov-beta-val">0.900</span>
+        </div>
+        <div class="step-log" id="log-nesterov"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>Nesterov Accelerated Gradient</h3>
+        <p>A smarter version of momentum. Instead of computing the gradient at the <em>current</em> position, we first "look ahead" to where momentum would take us, then compute the gradient there. This gives the optimizer a correction before it overshoots.</p>
+        <div class="tags">
+          <span class="tag pro">faster convergence</span>
+          <span class="tag pro">less overshoot</span>
+          <span class="tag pro">theoretically optimal</span>
+          <span class="tag con">still needs lr tuning</span>
+          <span class="tag con">marginally more compute</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="comment">// look ahead first</span>
+<span class="key">θ̃</span> = θₜ − β·vₜ₋₁         
+
+<span class="comment">// gradient at lookahead pos</span>
+<span class="key">g</span> = ∇L(<span class="key">θ̃</span>)               
+
+<span class="key">v</span><span class="val">ₜ</span> = β·vₜ₋₁ + (1−β)·g   <span class="comment">// velocity</span>
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − η·vₜ         <span class="comment">// update</span></div>
+      </div>
+      <div class="card">
+        <h3>Momentum vs Nesterov</h3>
+        <ul>
+          <li><b>Momentum:</b> "I'm moving fast, I'll correct after I arrive"</li>
+          <li><b>Nesterov:</b> "Let me check what the landscape looks like where I'm going before committing"</li>
+          <li>The lookahead gradient acts as a corrective brake, enabling larger learning rates safely</li>
+          <li>Particularly useful for training RNNs and convex problems</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADAGRAD ===================== -->
+<div class="section" id="sec-adagrad">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">adagrad — adaptive learning rates</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('adagrad')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('adagrad')">↺ Reset</button>
+            <select class="btn" id="adagrad-landscape" onchange="resetOptimizer('adagrad')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-adagrad" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="adagrad-lr" min="0.01" max="2.0" step="0.01" value="0.5" oninput="updateVal(this,'adagrad-lr-val')">
+          <span class="val" id="adagrad-lr-val">0.500</span>
+        </div>
+        <div class="param-row">
+          <label>ε (floor)</label>
+          <input type="range" id="adagrad-eps" min="0.00001" max="0.01" step="0.00001" value="0.0001" oninput="updateVal(this,'adagrad-eps-val')">
+          <span class="val" id="adagrad-eps-val">0.000</span>
+        </div>
+        <div class="step-log" id="log-adagrad"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>AdaGrad</h3>
+        <p>The first adaptive optimizer. It accumulates the sum of squared gradients per parameter and divides the learning rate by this sum. Parameters with historically large gradients get smaller effective learning rates; rare features with small gradients get larger rates. Great for sparse data.</p>
+        <div class="tags">
+          <span class="tag pro">adaptive per-param</span>
+          <span class="tag pro">great for sparse data</span>
+          <span class="tag pro">no lr schedule needed</span>
+          <span class="tag con">lr decays to zero</span>
+          <span class="tag con">stops learning early</span>
+          <span class="tag con">accumulates forever</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="key">G</span><span class="val">ₜ</span> = Gₜ₋₁ + gₜ²         <span class="comment">// accumulate sq grad</span>
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − <span class="key">η</span>/√(Gₜ+ε) · gₜ</div>
+        <p style="margin-top:12px;">The denominator <b>√G</b> grows without bound — eventually every parameter stops updating. This is AdaGrad's fatal flaw, fixed by RMSProp.</p>
+      </div>
+      <div class="card">
+        <h3>When to Use It</h3>
+        <ul>
+          <li><b>NLP / sparse features:</b> Word embeddings benefit from larger updates on rare words</li>
+          <li><b>Short training runs:</b> Decay doesn't matter if you stop before it kills learning</li>
+          <li><b>Avoid for:</b> Deep networks with long training — learning halts prematurely</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== RMSPROP ===================== -->
+<div class="section" id="sec-rmsprop">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">rmsprop — exponential moving average</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('rmsprop')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('rmsprop')">↺ Reset</button>
+            <select class="btn" id="rmsprop-landscape" onchange="resetOptimizer('rmsprop')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-rmsprop" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="rmsprop-lr" min="0.001" max="0.1" step="0.001" value="0.01" oninput="updateVal(this,'rmsprop-lr-val')">
+          <span class="val" id="rmsprop-lr-val">0.010</span>
+        </div>
+        <div class="param-row">
+          <label>ρ (decay)</label>
+          <input type="range" id="rmsprop-rho" min="0.5" max="0.999" step="0.001" value="0.9" oninput="updateVal(this,'rmsprop-rho-val')">
+          <span class="val" id="rmsprop-rho-val">0.900</span>
+        </div>
+        <div class="step-log" id="log-rmsprop"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>RMSProp</h3>
+        <p>Hinton's fix for AdaGrad. Instead of accumulating <em>all</em> past squared gradients, it keeps an exponentially decaying moving average. Old gradients lose influence, so the effective learning rate doesn't decay to zero. Particularly effective for non-stationary and recurrent problems.</p>
+        <div class="tags">
+          <span class="tag pro">adaptive per-param</span>
+          <span class="tag pro">doesn't stall</span>
+          <span class="tag pro">great for RNNs</span>
+          <span class="tag con">no momentum built-in</span>
+          <span class="tag con">ρ is sensitive</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="key">v</span><span class="val">ₜ</span> = ρ·vₜ₋₁ + (1−ρ)·gₜ²  <span class="comment">// EMA of sq grad</span>
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − η/√(vₜ+ε) · gₜ</div>
+        <p style="margin-top:12px;">ρ ≈ 0.9 means the running average forgets gradients from ~10 steps ago. Unlike AdaGrad's ever-growing sum, this stays bounded.</p>
+      </div>
+      <div class="card">
+        <h3>AdaGrad vs RMSProp</h3>
+        <ul>
+          <li><b>AdaGrad G_t:</b> Σ g² from t=0 to now (grows forever)</li>
+          <li><b>RMSProp v_t:</b> EMA of g² (stays bounded via exponential forgetting)</li>
+          <li>The forgetting horizon is roughly 1/(1-ρ) steps — with ρ=0.9, this is ~10 steps</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADAM ===================== -->
+<div class="section" id="sec-adam">
+  <div class="two-col">
+    <div>
+      <div class="viz-panel">
+        <div class="viz-toolbar">
+          <span class="label">adam — momentum + adaptive rates</span>
+          <div class="controls">
+            <button class="btn primary" onclick="runOptimizer('adam')">▶ Run</button>
+            <button class="btn" onclick="resetOptimizer('adam')">↺ Reset</button>
+            <select class="btn" id="adam-landscape" onchange="resetOptimizer('adam')">
+              <option value="bowl">Bowl</option>
+              <option value="valley">Narrow Valley</option>
+              <option value="saddle">Saddle Point</option>
+            </select>
+          </div>
+        </div>
+        <canvas id="canvas-adam" width="700" height="340"></canvas>
+        <div class="param-row">
+          <label>lr η</label>
+          <input type="range" id="adam-lr" min="0.0001" max="0.05" step="0.0001" value="0.001" oninput="updateVal(this,'adam-lr-val')">
+          <span class="val" id="adam-lr-val">0.001</span>
+        </div>
+        <div class="param-row">
+          <label>β₁ (m)</label>
+          <input type="range" id="adam-b1" min="0.5" max="0.999" step="0.001" value="0.9" oninput="updateVal(this,'adam-b1-val')">
+          <span class="val" id="adam-b1-val">0.900</span>
+        </div>
+        <div class="param-row">
+          <label>β₂ (v)</label>
+          <input type="range" id="adam-b2" min="0.5" max="0.9999" step="0.0001" value="0.999" oninput="updateVal(this,'adam-b2-val')">
+          <span class="val" id="adam-b2-val">0.999</span>
+        </div>
+        <div class="step-log" id="log-adam"><span class="step-n">// press run to start</span></div>
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="card">
+        <h3>Adam</h3>
+        <p>Combines momentum (1st moment) with RMSProp (2nd moment) — the best of both worlds. Tracks an EMA of the gradient itself and an EMA of squared gradients, then applies bias corrections to handle the cold start. Default choice for most deep learning tasks.</p>
+        <div class="tags">
+          <span class="tag pro">fast convergence</span>
+          <span class="tag pro">adaptive per-param</span>
+          <span class="tag pro">bias-corrected</span>
+          <span class="tag pro">robust defaults</span>
+          <span class="tag con">may not generalize</span>
+          <span class="tag con">4 hyperparams</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Update Rule</h3>
+        <div class="formula"><span class="key">m</span><span class="val">ₜ</span> = β₁·mₜ₋₁ + (1−β₁)·gₜ   <span class="comment">// 1st moment</span>
+<span class="key">v</span><span class="val">ₜ</span> = β₂·vₜ₋₁ + (1−β₂)·gₜ²  <span class="comment">// 2nd moment</span>
+
+<span class="comment">// bias correction (crucial at t=1)</span>
+<span class="key">m̂</span> = mₜ/(1−β₁ᵗ)
+<span class="key">v̂</span> = vₜ/(1−β₂ᵗ)
+
+<span class="key">θ</span><span class="val">ₜ₊₁</span> = θₜ − η · m̂ / (√v̂ + ε)</div>
+      </div>
+      <div class="card">
+        <h3>Bias Correction Explained</h3>
+        <p>At t=1, m₁ = (1−β₁)·g₁ which is tiny. Dividing by (1−β₁ᵗ) = (1−0.9) = 0.1 rescales it back to the true gradient magnitude. Without this, the first steps would be much too small, causing a slow warm-up period.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== COMPARE ALL ===================== -->
+<div class="section" id="sec-compare">
+  <div style="margin-bottom: 28px;">
+    <div class="viz-panel">
+      <div class="viz-toolbar">
+        <span class="label">all optimizers — same landscape</span>
+        <div class="controls">
+          <button class="btn primary" onclick="runAll()">▶ Run All</button>
+          <button class="btn" onclick="resetAll()">↺ Reset</button>
+          <select class="btn" id="compare-landscape" onchange="resetAll()">
+            <option value="valley">Narrow Valley</option>
+            <option value="bowl">Bowl</option>
+            <option value="saddle">Saddle Point</option>
+          </select>
+        </div>
+      </div>
+      <canvas id="canvas-compare" width="900" height="420"></canvas>
+      <div style="padding:16px 20px 4px; border-top: 1px solid var(--border);">
+        <div class="legend" id="compareLegend">
+          <div class="legend-item"><div class="legend-dot" style="background:#7c6af7"></div>SGD</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f76a8a"></div>Momentum</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#6af7c4"></div>Nesterov</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f7c46a"></div>AdaGrad</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#6ab8f7"></div>RMSProp</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#f76aee"></div>Adam</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto;">
+    <h3>Side-by-Side Comparison</h3>
+    <table class="compare-table" style="margin-top:16px;">
+      <thead>
+        <tr>
+          <th>Algorithm</th>
+          <th>Convergence</th>
+          <th>Memory</th>
+          <th>Hyperparams</th>
+          <th>Best For</th>
+          <th>Avoid When</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>SGD</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span></div></td>
+          <td>O(1)</td>
+          <td>η</td>
+          <td>CV fine-tuning, huge batches</td>
+          <td>NLP, sparse data</td>
+        </tr>
+        <tr>
+          <td>Momentum</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star off">★</span><span class="star off">★</span></div></td>
+          <td>O(n)</td>
+          <td>η, β</td>
+          <td>Smooth landscapes</td>
+          <td>Noisy / sparse gradients</td>
+        </tr>
+        <tr>
+          <td>Nesterov</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star off">★</span></div></td>
+          <td>O(n)</td>
+          <td>η, β</td>
+          <td>Convex problems, RNNs</td>
+          <td>Highly non-convex</td>
+        </tr>
+        <tr>
+          <td>AdaGrad</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star off">★</span><span class="star off">★</span><span class="star off">★</span></div></td>
+          <td>O(n)</td>
+          <td>η, ε</td>
+          <td>NLP, sparse features</td>
+          <td>Deep nets, long training</td>
+        </tr>
+        <tr>
+          <td>RMSProp</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star off">★</span></div></td>
+          <td>O(n)</td>
+          <td>η, ρ, ε</td>
+          <td>RNNs, non-stationary</td>
+          <td>When Adam is available</td>
+        </tr>
+        <tr>
+          <td>Adam</td>
+          <td><div class="rating"><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span><span class="star on">★</span></div></td>
+          <td>O(2n)</td>
+          <td>η, β₁, β₂, ε</td>
+          <td>Most deep learning tasks</td>
+          <td>When generalization is critical</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== HOW TO CHOOSE ===================== -->
+<div class="section" id="sec-choose">
+  <div class="flowchart">
+    <h3>Decision Flowchart</h3>
+    <div class="flow-nodes">
+      <div class="flow-node">
+        <div>
+          <div class="flow-q">1. Do you have sparse gradients or rare features?</div>
+          <div class="flow-a">Yes (NLP, embeddings, categorical data) → <span>AdaGrad or Adam</span></div>
+          <div class="flow-a">No → continue below</div>
+        </div>
+      </div>
+      <div class="flow-node">
+        <div>
+          <div class="flow-q">2. Are you training an RNN / sequence model?</div>
+          <div class="flow-a">Yes → <span>RMSProp or Adam</span> (non-stationary gradients)</div>
+          <div class="flow-a">No → continue below</div>
+        </div>
+      </div>
+      <div class="flow-node">
+        <div>
+          <div class="flow-q">3. Is generalization / test performance critical? (e.g. final paper results)</div>
+          <div class="flow-a">Yes → <span>SGD + Momentum + cosine LR schedule</span>. Slower but often beats Adam on test set for CNNs</div>
+          <div class="flow-a">No → continue below</div>
+        </div>
+      </div>
+      <div class="flow-node">
+        <div>
+          <div class="flow-q">4. Are you prototyping or need fast iteration?</div>
+          <div class="flow-a">Yes → <span>Adam with defaults</span> (η=1e-3, β₁=0.9, β₂=0.999). Works out-of-the-box for almost anything.</div>
+          <div class="flow-a">No → continue below</div>
+        </div>
+      </div>
+      <div class="flow-node">
+        <div>
+          <div class="flow-q">5. Convex problem or small dataset?</div>
+          <div class="flow-a">Yes → <span>Nesterov Momentum</span> has optimal convergence rate for convex problems</div>
+          <div class="flow-a">No → <span>Adam or AdamW</span> (Adam + weight decay fix)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="choice-grid">
+    <div class="choice-card">
+      <h4>🔬 Research / Training from Scratch</h4>
+      <p>Start with Adam for quick experiments. Once you have a working pipeline, try SGD + momentum + cosine annealing for potentially better final accuracy on vision tasks.</p>
+      <div class="rec">→ Adam → SGD+momentum</div>
+    </div>
+    <div class="choice-card">
+      <h4>🔁 Fine-tuning Pretrained Models</h4>
+      <p>Use a smaller learning rate (1e-5 to 1e-4). Adam or AdamW are preferred. SGD can cause catastrophic forgetting at higher LRs.</p>
+      <div class="rec">→ AdamW (η=1e-5 to 1e-4)</div>
+    </div>
+    <div class="choice-card">
+      <h4>📝 NLP / Transformers</h4>
+      <p>Adam with weight decay (AdamW) is the standard. Use a warmup schedule for the first 5-10% of steps, then cosine decay. β₂=0.999 by default.</p>
+      <div class="rec">→ AdamW + warmup + cosine</div>
+    </div>
+    <div class="choice-card">
+      <h4>🖼️ Computer Vision (CNNs)</h4>
+      <p>SGD + momentum (0.9) + cosine schedule consistently matches or beats Adam on final test accuracy for image classification (ResNets, ViTs).</p>
+      <div class="rec">→ SGD+momentum (η=0.1, decay)</div>
+    </div>
+    <div class="choice-card">
+      <h4>🌀 Recurrent / Sequential Models</h4>
+      <p>RMSProp was invented specifically for RNNs. Adam also works well. Avoid plain SGD due to exploding gradient sensitivity.</p>
+      <div class="rec">→ RMSProp or Adam</div>
+    </div>
+    <div class="choice-card">
+      <h4>⚡ Quick Prototyping</h4>
+      <p>Adam with default hyperparameters (η=1e-3) is the most robust "set and forget" option. It works reasonably well on almost any architecture without tuning.</p>
+      <div class="rec">→ Adam (η=1e-3, defaults)</div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ================================================================
+// UTILITIES
+// ================================================================
+function updateVal(el, id) {
+  document.getElementById(id).textContent = parseFloat(el.value).toFixed(3);
+}
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelector(`[data-id="${id}"]`).classList.add('active');
+}
+
+// ================================================================
+// LOSS LANDSCAPES
+// ================================================================
+function getLandscapeFn(type) {
+  if (type === 'bowl') {
+    return (x, y) => 0.5*(x*x + y*y);
+  } else if (type === 'valley') {
+    // elongated valley: steep in y, gentle in x
+    return (x, y) => 0.1*x*x + 5*y*y;
+  } else if (type === 'saddle') {
+    return (x, y) => x*x - y*y + 0.3*(x*x*x*x + y*y*y*y)*0.2;
+  }
+}
+function getLandscapeGrad(type) {
+  if (type === 'bowl') {
+    return (x, y) => [x, y];
+  } else if (type === 'valley') {
+    return (x, y) => [0.2*x, 10*y];
+  } else if (type === 'saddle') {
+    return (x, y) => [2*x + 0.24*x*x*x, -2*y + 0.24*y*y*y];
+  }
+}
+
+// ================================================================
+// CANVAS DRAWING
+// ================================================================
+const DOMAIN = 3.0; // x,y range [-DOMAIN, DOMAIN]
+
+function worldToCanvas(x, y, W, H) {
+  const cx = (x / DOMAIN * 0.45 + 0.5) * W;
+  const cy = (1 - (y / DOMAIN * 0.45 + 0.5)) * H;
+  return [cx, cy];
+}
+
+function drawLandscape(ctx, W, H, lossType) {
+  const imgData = ctx.createImageData(W, H);
+  const loss = getLandscapeFn(lossType);
+  let minL = Infinity, maxL = -Infinity;
+  const vals = [];
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const x = ((px / W) - 0.5) / 0.45 * DOMAIN;
+      const y = (0.5 - (py / H)) / 0.45 * DOMAIN;
+      const v = loss(x, y);
+      vals.push(v);
+      if (v < minL) minL = v;
+      if (v > maxL) maxL = v;
+    }
+  }
+  const range = maxL - minL || 1;
+  let i = 0;
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const t = Math.pow((vals[i] - minL) / range, 0.45);
+      const idx = (py * W + px) * 4;
+      // dark blue → purple → yellow palette
+      imgData.data[idx]   = Math.round(10 + t * 80);
+      imgData.data[idx+1] = Math.round(5 + t * 30);
+      imgData.data[idx+2] = Math.round(30 + t * 100);
+      imgData.data[idx+3] = 255;
+      i++;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // contour lines
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  for (let level = 1; level <= 8; level++) {
+    const target = minL + (level / 9) * range;
+    ctx.strokeStyle = '#aaaaff';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    // raster contour approximation: draw dots
+    for (let py = 0; py < H; py += 2) {
+      for (let px = 0; px < W; px += 2) {
+        const idx2 = (py * W + px);
+        const v = vals[idx2];
+        if (Math.abs(v - target) < range * 0.018) {
+          ctx.moveTo(px, py);
+          ctx.lineTo(px+1, py+1);
+        }
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Draw minimum
+  const [mx, my] = worldToCanvas(0, 0, W, H);
+  ctx.save();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.arc(mx, my, 7, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawPath(ctx, path, color) {
+  if (path.length < 2) return;
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  const [x0, y0] = worldToCanvas(path[0][0], path[0][1], W, H);
+  ctx.moveTo(x0, y0);
+  for (let i = 1; i < path.length; i++) {
+    const [xi, yi] = worldToCanvas(path[i][0], path[i][1], W, H);
+    ctx.lineTo(xi, yi);
+  }
+  ctx.stroke();
+  // Draw current position
+  const last = path[path.length - 1];
+  const [lx, ly] = worldToCanvas(last[0], last[1], W, H);
+  ctx.beginPath();
+  ctx.arc(lx, ly, 5, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 1;
+  ctx.fill();
+  // Draw start
+  const [sx, sy] = worldToCanvas(path[0][0], path[0][1], W, H);
+  ctx.beginPath();
+  ctx.arc(sx, sy, 4, 0, Math.PI*2);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.7;
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ================================================================
+// OPTIMIZER STATE
+// ================================================================
+const COLORS = {
+  sgd: '#7c6af7', momentum: '#f76a8a', nesterov: '#6af7c4',
+  adagrad: '#f7c46a', rmsprop: '#6ab8f7', adam: '#f76aee'
+};
+const START = [2.2, 1.8];
+
+const states = {};
+
+function getState(name) {
+  if (!states[name]) resetState(name);
+  return states[name];
+}
+
+function resetState(name) {
+  states[name] = {
+    path: [START.slice()],
+    x: START[0], y: START[1],
+    step: 0,
+    running: false,
+    // momentum/nesterov
+    vx: 0, vy: 0,
+    // adagrad
+    Gx: 0, Gy: 0,
+    // rmsprop
+    rx: 0, ry: 0,
+    // adam
+    mx: 0, my: 0,
+    sx: 0, sy: 0,
+  };
+}
+
+function getParams(name) {
+  const p = {};
+  const lr = document.getElementById(`${name}-lr`);
+  if (lr) p.lr = parseFloat(lr.value);
+  const beta = document.getElementById(`${name}-beta`);
+  if (beta) p.beta = parseFloat(beta.value);
+  const b1 = document.getElementById(`${name}-b1`);
+  if (b1) p.b1 = parseFloat(b1.value);
+  const b2 = document.getElementById(`${name}-b2`);
+  if (b2) p.b2 = parseFloat(b2.value);
+  const noise = document.getElementById(`${name}-noise`);
+  if (noise) p.noise = parseFloat(noise.value);
+  const eps = document.getElementById(`${name}-eps`);
+  if (eps) p.eps = parseFloat(eps.value);
+  const rho = document.getElementById(`${name}-rho`);
+  if (rho) p.rho = parseFloat(rho.value);
+  const landscape = document.getElementById(`${name}-landscape`);
+  if (landscape) p.landscape = landscape.value;
+  return p;
+}
+
+// ================================================================
+// STEP FUNCTIONS
+// ================================================================
+function stepSGD(st, p, gradFn) {
+  const n = p.noise || 0;
+  const [gx, gy] = gradFn(st.x, st.y);
+  const nx = gx + (Math.random()-0.5)*n*2;
+  const ny = gy + (Math.random()-0.5)*n*2;
+  st.x -= p.lr * nx;
+  st.y -= p.lr * ny;
+}
+
+function stepMomentum(st, p, gradFn) {
+  const [gx, gy] = gradFn(st.x, st.y);
+  st.vx = p.beta * st.vx + (1-p.beta) * gx;
+  st.vy = p.beta * st.vy + (1-p.beta) * gy;
+  st.x -= p.lr * st.vx;
+  st.y -= p.lr * st.vy;
+}
+
+function stepNesterov(st, p, gradFn) {
+  // Look ahead
+  const lx = st.x - p.beta * st.vx;
+  const ly = st.y - p.beta * st.vy;
+  const [gx, gy] = gradFn(lx, ly);
+  st.vx = p.beta * st.vx + (1-p.beta) * gx;
+  st.vy = p.beta * st.vy + (1-p.beta) * gy;
+  st.x -= p.lr * st.vx;
+  st.y -= p.lr * st.vy;
+}
+
+function stepAdaGrad(st, p, gradFn) {
+  const eps = p.eps || 1e-8;
+  const [gx, gy] = gradFn(st.x, st.y);
+  st.Gx += gx * gx;
+  st.Gy += gy * gy;
+  st.x -= p.lr / Math.sqrt(st.Gx + eps) * gx;
+  st.y -= p.lr / Math.sqrt(st.Gy + eps) * gy;
+}
+
+function stepRMSProp(st, p, gradFn) {
+  const rho = p.rho || 0.9;
+  const eps = 1e-8;
+  const [gx, gy] = gradFn(st.x, st.y);
+  st.rx = rho * st.rx + (1-rho) * gx*gx;
+  st.ry = rho * st.ry + (1-rho) * gy*gy;
+  st.x -= p.lr / Math.sqrt(st.rx + eps) * gx;
+  st.y -= p.lr / Math.sqrt(st.ry + eps) * gy;
+}
+
+function stepAdam(st, p, gradFn) {
+  const b1 = p.b1 || 0.9;
+  const b2 = p.b2 || 0.999;
+  const eps = 1e-8;
+  const t = st.step + 1;
+  const [gx, gy] = gradFn(st.x, st.y);
+  st.mx = b1 * st.mx + (1-b1) * gx;
+  st.my = b1 * st.my + (1-b1) * gy;
+  st.sx = b2 * st.sx + (1-b2) * gx*gx;
+  st.sy = b2 * st.sy + (1-b2) * gy*gy;
+  const mhx = st.mx / (1 - Math.pow(b1, t));
+  const mhy = st.my / (1 - Math.pow(b1, t));
+  const shx = st.sx / (1 - Math.pow(b2, t));
+  const shy = st.sy / (1 - Math.pow(b2, t));
+  st.x -= p.lr * mhx / (Math.sqrt(shx) + eps);
+  st.y -= p.lr * mhy / (Math.sqrt(shy) + eps);
+}
+
+const STEP_FUNS = { sgd: stepSGD, momentum: stepMomentum, nesterov: stepNesterov, adagrad: stepAdaGrad, rmsprop: stepRMSProp, adam: stepAdam };
+
+// ================================================================
+// ANIMATION LOOP
+// ================================================================
+const timers = {};
+
+function runOptimizer(name) {
+  const st = getState(name);
+  if (st.running) return;
+  st.running = true;
+  const canvas = document.getElementById(`canvas-${name}`);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // draw landscape once
+  const p = getParams(name);
+  const ltype = p.landscape || 'bowl';
+  drawLandscape(ctx, W, H, ltype);
+  const gradFn = getLandscapeGrad(ltype);
+  const lossFn = getLandscapeFn(ltype);
+  const stepFn = STEP_FUNS[name];
+  const log = document.getElementById(`log-${name}`);
+  log.innerHTML = '';
+
+  function tick() {
+    if (!st.running) return;
+    if (st.step >= 300) { st.running = false; return; }
+    for (let i = 0; i < 2; i++) {
+      stepFn(st, p, gradFn);
+      st.step++;
+      st.x = Math.max(-DOMAIN*1.5, Math.min(DOMAIN*1.5, st.x));
+      st.y = Math.max(-DOMAIN*1.5, Math.min(DOMAIN*1.5, st.y));
+      st.path.push([st.x, st.y]);
+    }
+    // redraw
+    drawLandscape(ctx, W, H, ltype);
+    drawPath(ctx, st.path, COLORS[name]);
+    // log
+    if (st.step % 10 === 0) {
+      const loss = lossFn(st.x, st.y);
+      log.innerHTML += `<div><span class="step-n">step ${st.step}</span>  loss=<span class="step-loss">${loss.toFixed(4)}</span>  pos=<span class="step-pos">(${st.x.toFixed(3)}, ${st.y.toFixed(3)})</span></div>`;
+      log.scrollTop = log.scrollHeight;
+    }
+    timers[name] = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+function resetOptimizer(name) {
+  if (timers[name]) cancelAnimationFrame(timers[name]);
+  resetState(name);
+  const st = getState(name);
+  st.running = false;
+  const canvas = document.getElementById(`canvas-${name}`);
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const p = getParams(name);
+  const ltype = p.landscape || 'bowl';
+  drawLandscape(ctx, W, H, ltype);
+  // Draw start dot
+  const [sx, sy] = worldToCanvas(START[0], START[1], W, H);
+  ctx.beginPath();
+  ctx.arc(sx, sy, 5, 0, Math.PI*2);
+  ctx.fillStyle = COLORS[name];
+  ctx.fill();
+  const log = document.getElementById(`log-${name}`);
+  if (log) log.innerHTML = '<span class="step-n">// press run to start</span>';
+}
+
+// ================================================================
+// COMPARE ALL
+// ================================================================
+const compareStates = {};
+const compareTimers = {};
+
+function resetAll() {
+  Object.keys(compareTimers).forEach(k => cancelAnimationFrame(compareTimers[k]));
+  const names = ['sgd','momentum','nesterov','adagrad','rmsprop','adam'];
+  names.forEach(name => {
+    compareStates[name] = {
+      path: [START.slice()], x: START[0], y: START[1], step: 0, running: false,
+      vx:0,vy:0,Gx:0,Gy:0,rx:0,ry:0,mx:0,my:0,sx:0,sy:0
+    };
+  });
+  const canvas = document.getElementById('canvas-compare');
+  const ctx = canvas.getContext('2d');
+  const landscape = document.getElementById('compare-landscape').value;
+  drawLandscape(ctx, canvas.width, canvas.height, landscape);
+  // draw start dots
+  names.forEach(name => {
+    const [sx, sy] = worldToCanvas(START[0], START[1], canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 4, 0, Math.PI*2);
+    ctx.fillStyle = COLORS[name];
+    ctx.fill();
+  });
+}
+
+function runAll() {
+  const names = ['sgd','momentum','nesterov','adagrad','rmsprop','adam'];
+  const landscape = document.getElementById('compare-landscape').value;
+  const gradFn = getLandscapeGrad(landscape);
+
+  const defaultParams = {
+    sgd:       { lr: 0.05, noise: 0.0, landscape },
+    momentum:  { lr: 0.03, beta: 0.9, landscape },
+    nesterov:  { lr: 0.03, beta: 0.9, landscape },
+    adagrad:   { lr: 0.5,  eps: 1e-8, landscape },
+    rmsprop:   { lr: 0.01, rho: 0.9, landscape },
+    adam:      { lr: 0.001, b1: 0.9, b2: 0.999, landscape },
+  };
+
+  names.forEach(name => {
+    if (compareStates[name] && compareStates[name].running) return;
+    if (!compareStates[name]) {
+      compareStates[name] = {
+        path: [START.slice()], x: START[0], y: START[1], step: 0, running: false,
+        vx:0,vy:0,Gx:0,Gy:0,rx:0,ry:0,mx:0,my:0,sx:0,sy:0
+      };
+    }
+    compareStates[name].running = true;
+  });
+
+  const canvas = document.getElementById('canvas-compare');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  function tick() {
+    names.forEach(name => {
+      if (!compareStates[name].running) return;
+      const st = compareStates[name];
+      if (st.step >= 300) { st.running = false; return; }
+      for (let i = 0; i < 2; i++) {
+        STEP_FUNS[name](st, defaultParams[name], gradFn);
+        st.step++;
+        st.x = Math.max(-DOMAIN*1.5, Math.min(DOMAIN*1.5, st.x));
+        st.y = Math.max(-DOMAIN*1.5, Math.min(DOMAIN*1.5, st.y));
+        st.path.push([st.x, st.y]);
+      }
+    });
+    drawLandscape(ctx, W, H, landscape);
+    names.forEach(name => drawPath(ctx, compareStates[name].path, COLORS[name]));
+    const anyRunning = names.some(n => compareStates[n].running);
+    if (anyRunning) compareTimers['all'] = requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ================================================================
+// INIT
+// ================================================================
+window.addEventListener('load', () => {
+  ['sgd','momentum','nesterov','adagrad','rmsprop','adam'].forEach(name => {
+    const canvas = document.getElementById(`canvas-${name}`);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const p = getParams(name);
+    const ltype = p.landscape || 'bowl';
+    drawLandscape(ctx, canvas.width, canvas.height, ltype);
+    resetState(name);
+    const [sx, sy] = worldToCanvas(START[0], START[1], canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 5, 0, Math.PI*2);
+    ctx.fillStyle = COLORS[name];
+    ctx.fill();
+  });
+  resetAll();
+});
+</script>
+</body>
+</html>
