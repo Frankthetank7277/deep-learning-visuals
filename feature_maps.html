@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feature Map Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --bg2: #ede9e0;
+  --surface: #ffffff;
+  --border: #d4cfc4;
+  --border2: #c4bfb4;
+  --text: #1a1814;
+  --text2: #5a5650;
+  --text3: #8a8680;
+  --accent: #c84b2f;
+  --accent2: #2a6e9e;
+  --accent3: #2a7a4a;
+  --shadow: rgba(26,24,20,0.08);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+}
+
+/* Grain texture */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:9999;
+}
+
+header {
+  padding: 48px 56px 36px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.header-left { flex:1; }
+
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.subtitle {
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+}
+
+/* Layer selector */
+.layer-selector {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg2);
+}
+
+.layer-btn {
+  padding: 8px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.layer-btn:last-child { border-right: none; }
+
+.layer-btn.active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.layer-btn:hover:not(.active) {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Main layout */
+main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 0;
+  min-height: calc(100vh - 140px);
+}
+
+.left-col {
+  padding: 40px 56px;
+  border-right: 1px solid var(--border);
+}
+
+.right-col {
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Section headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.section-num {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--text3);
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+}
+
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--text);
+}
+
+/* Input image */
+.input-section { margin-bottom: 40px; }
+
+.input-image-wrap {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+canvas#inputCanvas {
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+.input-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pattern-btn {
+  padding: 8px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.pattern-btn:hover { border-color: var(--text3); color: var(--text); }
+.pattern-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.input-label {
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+/* Feature map grid */
+.fmap-section { }
+
+.fmap-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.colormap-selector {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cm-btn {
+  width: 32px;
+  height: 24px;
+  border: none;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+  position: relative;
+  transition: transform 0.1s;
+}
+
+.cm-btn:last-child { border-right: none; }
+.cm-btn.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cm-btn:hover { transform: scaleY(1.15); }
+
+.fmap-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.fmap-cell {
+  position: relative;
+  cursor: pointer;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.fmap-cell:hover { transform: scale(1.08); border-color: var(--accent); z-index:5; }
+.fmap-cell.selected { border-color: var(--accent); }
+
+.fmap-cell canvas { display: block; width: 100%; aspect-ratio:1; image-rendering: pixelated; }
+
+.fmap-label {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  font-size: 7px;
+  text-align: center;
+  padding: 2px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fmap-cell:hover .fmap-label { opacity: 1; }
+
+/* Detail panel */
+.detail-panel {
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.detail-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-header-title {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.detail-body { padding: 16px; }
+
+canvas#detailCanvas {
+  width: 100%;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: block;
+  margin-bottom: 14px;
+}
+
+/* Stats bar */
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.stat-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.stat-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.stat-key {
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 2px;
+  display: block;
+}
+
+/* Activation histogram */
+.hist-wrap {
+  margin-bottom: 14px;
+}
+
+.hist-label {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+
+canvas#histCanvas {
+  width: 100%;
+  height: 48px;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg2);
+}
+
+/* Interpretation card */
+.interp-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 12px 14px;
+}
+
+.interp-title {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.interp-text {
+  font-size: 10px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+/* Right panel */
+.concept-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.concept-header {
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+.concept-body { padding: 14px; }
+
+/* Pipeline diagram */
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pipe-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.pipe-step:last-child { border-bottom: none; }
+.pipe-step:hover { background: var(--bg2); }
+.pipe-step.active-step { background: var(--bg2); border-left: 3px solid var(--accent2); padding-left: 10px; }
+
+.pipe-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.pipe-step-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.pipe-step-desc {
+  font-size: 9px;
+  color: var(--text3);
+  line-height: 1.5;
+}
+
+/* Colorbar */
+.colorbar-wrap {
+  margin-top: 12px;
+}
+
+.colorbar-label {
+  font-size: 8px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+canvas#colorbarCanvas {
+  width: 100%;
+  height: 16px;
+  display: block;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+/* Interpretation guide */
+.interp-guide { }
+
+.interp-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 9px;
+}
+
+.interp-row:last-child { border-bottom: none; }
+
+.interp-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  border: 1px solid var(--border);
+}
+
+.interp-row-title { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.interp-row-desc { color: var(--text3); line-height: 1.5; }
+
+/* Annotations */
+.annotation-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+canvas#annotatedCanvas {
+  display: block;
+  image-rendering: pixelated;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+}
+
+.annotation-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Selected filter kernel display */
+.kernel-wrap {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.kernel-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+/* Tabs for right panel sections */
+.rpanel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.rpanel-tab {
+  padding: 8px 12px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--text3);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.rpanel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.rpanel-tab:hover:not(.active) { color: var(--text); }
+
+.rpanel-panel { display: none; padding: 16px; }
+.rpanel-panel.active { display: block; }
+
+@keyframes fadeIn { from {opacity:0;transform:translateY(6px)} to {opacity:1;transform:none} }
+.fmap-cell { animation: fadeIn 0.3s ease both; }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  .right-col { border-top: 1px solid var(--border); }
+  header { flex-direction: column; align-items: flex-start; }
+  .fmap-grid { grid-template-columns: repeat(6,1fr); }
+  header, .left-col { padding-left: 24px; padding-right: 24px; }
+  .right-col { padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="eyebrow">CNN Interpretability · BIOE 486</div>
+    <h1>Feature Map<br><em>Explorer</em></h1>
+    <p class="subtitle">Select a layer → click any filter → inspect activations &amp; statistics</p>
+  </div>
+  <div>
+    <div class="input-label">Active Layer</div>
+    <div class="layer-selector">
+      <button class="layer-btn active" onclick="selectLayer(0,this)">Conv1<br><span style="font-size:7px;opacity:0.6">3×3 · 8ch</span></button>
+      <button class="layer-btn" onclick="selectLayer(1,this)">Conv2<br><span style="font-size:7px;opacity:0.6">3×3 · 16ch</span></button>
+      <button class="layer-btn" onclick="selectLayer(2,this)">Conv3<br><span style="font-size:7px;opacity:0.6">3×3 · 32ch</span></button>
+      <button class="layer-btn" onclick="selectLayer(3,this)">Conv4<br><span style="font-size:7px;opacity:0.6">3×3 · 32ch</span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="left-col">
+
+    <!-- Input image -->
+    <div class="input-section">
+      <div class="section-header">
+        <span class="section-num">01</span>
+        <span class="section-title">Input Image</span>
+      </div>
+      <div class="input-image-wrap">
+        <div>
+          <div class="annotation-wrap">
+            <canvas id="inputCanvas" width="128" height="128" style="width:128px;height:128px;"></canvas>
+          </div>
+          <div style="font-size:8px;color:var(--text3);margin-top:6px;letter-spacing:0.06em;">128 × 128 · grayscale synthetic</div>
+        </div>
+        <div class="input-controls">
+          <div class="input-label">Test Pattern</div>
+          <button class="pattern-btn active" onclick="selectPattern('edges',this)">⊞ Edge Grid</button>
+          <button class="pattern-btn" onclick="selectPattern('circle',this)">◯ Circle</button>
+          <button class="pattern-btn" onclick="selectPattern('gradient',this)">▤ Gradient</button>
+          <button class="pattern-btn" onclick="selectPattern('texture',this)">⊡ Texture</button>
+          <button class="pattern-btn" onclick="selectPattern('diagonal',this)">⟋ Diagonals</button>
+          <button class="pattern-btn" onclick="selectPattern('noise',this)">⬡ Noise</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature maps -->
+    <div class="fmap-section">
+      <div class="section-header">
+        <span class="section-num">02</span>
+        <span class="section-title">Feature Maps</span>
+        <div class="fmap-controls" style="margin-bottom:0;margin-left:auto;">
+          <span style="font-size:8px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;">Colormap</span>
+          <div class="colormap-selector" id="colormapSelector">
+            <canvas class="cm-btn active" id="cm0" width="32" height="24" title="Viridis"></canvas>
+            <canvas class="cm-btn" id="cm1" width="32" height="24" title="Hot"></canvas>
+            <canvas class="cm-btn" id="cm2" width="32" height="24" title="Grayscale"></canvas>
+            <canvas class="cm-btn" id="cm3" width="32" height="24" title="RdBu"></canvas>
+            <canvas class="cm-btn" id="cm4" width="32" height="24" title="Plasma"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="fmap-grid" id="fmapGrid"></div>
+
+      <div class="colorbar-wrap">
+        <div class="colorbar-label">
+          <span>Low activation</span>
+          <span>High activation</span>
+        </div>
+        <canvas id="colorbarCanvas" height="16"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right column: detail + concepts -->
+  <div class="right-col">
+
+    <!-- Detail panel -->
+    <div class="detail-panel">
+      <div class="detail-header">
+        <span class="detail-header-title">Filter Detail</span>
+        <span id="filterLabel" style="font-size:9px;color:var(--text3);">click a map →</span>
+      </div>
+      <div class="detail-body">
+        <canvas id="detailCanvas" width="200" height="200"></canvas>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <span class="stat-val" id="statMax">—</span>
+            <span class="stat-key">Max</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="statMean">—</span>
+            <span class="stat-key">Mean</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-val" id="statSparsity">—</span>
+            <span class="stat-key">Sparsity</span>
+          </div>
+        </div>
+
+        <div class="hist-wrap">
+          <div class="hist-label">Activation Distribution</div>
+          <canvas id="histCanvas" width="260" height="48"></canvas>
+        </div>
+
+        <div class="interp-card" id="interpCard">
+          <div class="interp-title">Interpretation</div>
+          <div class="interp-text" id="interpText">Select a feature map to see what this filter detects.</div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="hist-label" style="margin-bottom:8px;">Filter Kernel (3×3)</div>
+          <div class="kernel-wrap" id="kernelWrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Concepts panel -->
+    <div class="concept-card">
+      <div class="rpanel-tabs">
+        <div class="rpanel-tab active" onclick="switchRTab('guide',this)">Reading Maps</div>
+        <div class="rpanel-tab" onclick="switchRTab('pipeline',this)">Pipeline</div>
+      </div>
+
+      <div id="rpanel-guide" class="rpanel-panel active">
+        <div class="interp-guide">
+          <div class="interp-row">
+            <div class="interp-swatch" style="background:linear-gradient(135deg,#fff,#ffeb3b,#f44336);"></div>
+            <div>
+              <div class="interp-row-title">High activation (bright)</div>
+              <div class="interp-row-desc">Filter strongly responds here. The pattern it's tuned to is present in this region.</div>
+            </div>
+          </div>
+          <div class="interp-row">
+            <div class="interp-swatch" style="background:linear-gradient(135deg,#1a237e,#283593);"></div>
+            <div>
+              <div class="interp-row-title">Low / zero activation</div>
+              <div class="interp-row-desc">Pattern absent. ReLU zeros out negative pre-activations — dead regions are common.</div>
+            </div>
+          </div>
+          <div class="interp-row">
+            <div class="interp-swatch" style="background:linear-gradient(135deg,#333,#555,#333,#555);background-size:8px 8px;"></div>
+            <div>
+              <div class="interp-row-title">High sparsity</div>
+              <div class="interp-row-desc">Most values near zero. Common in deeper layers — selective, specialized detectors.</div>
+            </div>
+          </div>
+          <div class="interp-row">
+            <div class="interp-swatch" style="background:linear-gradient(135deg,#c84b2f,#f5a623,#c84b2f);"></div>
+            <div>
+              <div class="interp-row-title">Early layers (Conv1–2)</div>
+              <div class="interp-row-desc">Detect low-level features: edges, oriented gradients, blobs, color contrasts.</div>
+            </div>
+          </div>
+          <div class="interp-row">
+            <div class="interp-swatch" style="background:linear-gradient(135deg,#2a6e9e,#4fc3f7);"></div>
+            <div>
+              <div class="interp-row-title">Deep layers (Conv3–4+)</div>
+              <div class="interp-row-desc">Detect complex patterns: textures, object parts, semantic concepts.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="rpanel-pipeline" class="rpanel-panel">
+        <div class="pipeline">
+          <div class="pipe-step" id="ps0" onclick="highlightPipeStep(0)">
+            <div class="pipe-dot" style="background:var(--accent)"></div>
+            <div>
+              <div class="pipe-step-title">1. Forward pass</div>
+              <div class="pipe-step-desc">Input image propagates through each conv layer, producing activation tensors at each stage.</div>
+            </div>
+          </div>
+          <div class="pipe-step" onclick="highlightPipeStep(1)">
+            <div class="pipe-dot" style="background:var(--accent2)"></div>
+            <div>
+              <div class="pipe-step-title">2. Extract activations</div>
+              <div class="pipe-step-desc">Hook into the layer of interest. Capture output tensor of shape (H × W × C).</div>
+            </div>
+          </div>
+          <div class="pipe-step" onclick="highlightPipeStep(2)">
+            <div class="pipe-dot" style="background:var(--accent3)"></div>
+            <div>
+              <div class="pipe-step-title">3. Slice channels</div>
+              <div class="pipe-step-desc">Each channel is one filter's response. Visualize as a 2D heatmap. There are C maps per layer.</div>
+            </div>
+          </div>
+          <div class="pipe-step" onclick="highlightPipeStep(3)">
+            <div class="pipe-dot" style="background:#e8a020"></div>
+            <div>
+              <div class="pipe-step-title">4. Normalize per-map</div>
+              <div class="pipe-step-desc">Scale [min, max] → [0, 1] per feature map for visualization. Don't normalize globally.</div>
+            </div>
+          </div>
+          <div class="pipe-step" onclick="highlightPipeStep(4)">
+            <div class="pipe-dot" style="background:#8b2fc9"></div>
+            <div>
+              <div class="pipe-step-title">5. Apply colormap</div>
+              <div class="pipe-step-desc">Map scalar values to RGB. Perceptually uniform colormaps (Viridis, Plasma) preferred over rainbow.</div>
+            </div>
+          </div>
+          <div class="pipe-step" onclick="highlightPipeStep(5)">
+            <div class="pipe-dot" style="background:#c84b2f"></div>
+            <div>
+              <div class="pipe-step-title">6. Interpret patterns</div>
+              <div class="pipe-step-desc">Identify what spatial regions fire. Compare across inputs to infer what the filter detects.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ===================== STATE =====================
+let currentLayer = 0;
+let currentPattern = 'edges';
+let currentColormap = 0;
+let selectedFilter = null;
+let featureMaps = [];
+let kernels = [];
+
+// ===================== COLORMAPS =====================
+const colormaps = {
+  viridis: (t) => {
+    // Simplified viridis
+    const r = Math.round(Math.max(0, Math.min(255, 68 + t*(58-68) + t*t*(213-58-68+68))));
+    const g = Math.round(Math.max(0, Math.min(255, 1 + t*230)));
+    const b = Math.round(Math.max(0, Math.min(255, 84 + t*(32-84) + t*t*(45-32-84+84))));
+    // Better viridis approximation
+    const rv = Math.round(clamp(lerp3(0.267, 0.127, 0.993, t) * 255));
+    const gv = Math.round(clamp(lerp3(0.005, 0.566, 0.906, t) * 255));
+    const bv = Math.round(clamp(lerp3(0.329, 0.551, 0.144, t) * 255));
+    return [rv, gv, bv];
+  },
+  hot: (t) => {
+    const r = clamp(t * 3) * 255;
+    const g = clamp(t * 3 - 1) * 255;
+    const b = clamp(t * 3 - 2) * 255;
+    return [Math.round(r), Math.round(g), Math.round(b)];
+  },
+  gray: (t) => {
+    const v = Math.round(t * 255);
+    return [v, v, v];
+  },
+  rdbu: (t) => {
+    if (t < 0.5) {
+      const s = t * 2;
+      return [Math.round(lerp(0.647, 1, s)*255), Math.round(lerp(0.0, 0.6, s)*255), Math.round(lerp(0.149, 0.6, s)*255)];
+    } else {
+      const s = (t - 0.5) * 2;
+      return [Math.round(lerp(1, 0.196, s)*255), Math.round(lerp(0.6, 0.263, s)*255), Math.round(lerp(0.6, 0.549, s)*255)];
+    }
+  },
+  plasma: (t) => {
+    const r = clamp(0.050 + t*(1.014) + t*t*(-0.326));
+    const g = clamp(0.030 + t*(-0.152) + t*t*(1.246));
+    const b = clamp(0.528 + t*(0.432) + t*t*(-0.923));
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
+};
+
+const cmNames = ['viridis','hot','gray','rdbu','plasma'];
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+function lerp3(a,b,c,t){ return t<0.5 ? lerp(a,b,t*2) : lerp(b,c,(t-0.5)*2); }
+function clamp(v,lo=0,hi=1){ return Math.max(lo,Math.min(hi,v)); }
+
+// ===================== COLORMAP SWATCHES =====================
+function drawColormapSwatches() {
+  cmNames.forEach((name, i) => {
+    const c = document.getElementById('cm'+i);
+    const ctx = c.getContext('2d');
+    for (let x=0; x<32; x++) {
+      const [r,g,b] = colormaps[name](x/31);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(x, 0, 1, 24);
+    }
+    c.onclick = () => {
+      document.querySelectorAll('.cm-btn').forEach(b=>b.classList.remove('active'));
+      c.classList.add('active');
+      currentColormap = i;
+      redrawAll();
+    };
+  });
+}
+
+function drawColorbar() {
+  const c = document.getElementById('colorbarCanvas');
+  const ctx = c.getContext('2d');
+  const w = c.width = c.offsetWidth * devicePixelRatio || 260;
+  c.height = 16;
+  const cm = colormaps[cmNames[currentColormap]];
+  for (let x=0; x<w; x++) {
+    const [r,g,b] = cm(x/w);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(x, 0, 1, 16);
+  }
+}
+
+// ===================== INPUT PATTERNS =====================
+const patterns = {
+  edges: (x, y, w, h) => {
+    const gx = Math.sin(x / w * Math.PI * 8);
+    const gy = Math.sin(y / h * Math.PI * 8);
+    return (gx * gy + 1) / 2;
+  },
+  circle: (x, y, w, h) => {
+    const cx = x/w - 0.5, cy = y/h - 0.5;
+    const r = Math.sqrt(cx*cx + cy*cy);
+    return Math.max(0, 1 - r * 4) + 0.3 * Math.sin(r * 40);
+  },
+  gradient: (x, y, w, h) => {
+    return (x/w * 0.7 + y/h * 0.3);
+  },
+  texture: (x, y, w, h) => {
+    return (Math.sin(x/w*60) * Math.cos(y/h*60) + 1) / 2 * 0.7 + 0.3 * ((x+y)%2==0 ? 1:0);
+  },
+  diagonal: (x, y, w, h) => {
+    return (Math.sin((x + y) / (w+h) * Math.PI * 16) + 1) / 2;
+  },
+  noise: (x, y, w, h) => {
+    // Pseudo-noise
+    const v = Math.sin(x * 1234.567 + y * 7654.321) * 43758.5453;
+    return Math.abs(v - Math.floor(v));
+  }
+};
+
+function drawInputImage() {
+  const c = document.getElementById('inputCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const img = ctx.createImageData(W, H);
+  const fn = patterns[currentPattern];
+  for (let y=0; y<H; y++) {
+    for (let x=0; x<W; x++) {
+      const v = Math.round(clamp(fn(x, y, W, H)) * 255);
+      const i = (y*W+x)*4;
+      img.data[i]=img.data[i+1]=img.data[i+2]=v;
+      img.data[i+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ===================== KERNEL GENERATION =====================
+const kernelTypes = [
+  // Edge detectors
+  [[-1,-1,-1],[-1,8,-1],[-1,-1,-1]], // Laplacian
+  [[-1,0,1],[-2,0,2],[-1,0,1]],     // Sobel H
+  [[-1,-2,-1],[0,0,0],[1,2,1]],      // Sobel V
+  [[0,1,0],[1,-4,1],[0,1,0]],        // Cross Laplacian
+  // Blurs
+  [[1,2,1],[2,4,2],[1,2,1]],         // Gaussian
+  [[1,1,1],[1,1,1],[1,1,1]],         // Box blur
+  // Directional
+  [[2,0,-2],[2,0,-2],[2,0,-2]],      // Vertical edge
+  [[2,2,2],[0,0,0],[-2,-2,-2]],      // Horizontal edge
+  // Diagonal
+  [[-1,-1,2],[-1,2,-1],[2,-1,-1]],   // Diag 1
+  [[2,-1,-1],[-1,2,-1],[-1,-1,2]],   // Diag 2
+  // Sharpening
+  [[0,-1,0],[-1,5,-1],[0,-1,0]],     // Sharpen
+  [[-1,2,-1],[-1,2,-1],[-1,2,-1]],   // Vertical stripe
+  // More
+  [[1,0,-1],[2,0,-2],[1,0,-1]],      // Prewitt H
+  [[1,2,1],[0,0,0],[-1,-2,-1]],      // Prewitt V
+  [[0,0,1],[0,1,0],[1,0,0]],         // Dot diag
+  [[1,0,0],[0,1,0],[0,0,1]],         // Dot diag 2
+  [[0,1,0],[0,1,0],[0,1,0]],         // Vertical line
+  [[0,0,0],[1,1,1],[0,0,0]],         // Horizontal line
+  [[1,1,0],[1,0,-1],[0,-1,-1]],      // Mixed
+  [[0,-1,0],[1,0,-1],[0,1,0]],       // Checkerboard-like
+  // for layer 2+
+  [[1,2,1],[0,0,0],[-1,-2,-1]],
+  [[-1,0,1],[-2,0,2],[-1,0,1]],
+  [[2,1,0],[1,0,-1],[0,-1,-2]],
+  [[-2,-1,0],[-1,0,1],[0,1,2]],
+  [[0,0,0],[0,1,0],[0,0,0]],         // identity
+  [[1,0,1],[0,0,0],[-1,0,-1]],
+  [[0,1,0],[-1,0,1],[0,-1,0]],
+  [[1,-1,1],[-1,1,-1],[1,-1,1]],
+  [[0,0,0],[0,2,0],[0,0,0]],
+  [[1,1,1],[1,-8,1],[1,1,1]],
+  [[0,-1,0],[-1,4,-1],[0,-1,0]],
+  [[1,0,-1],[0,0,0],[-1,0,1]],
+];
+
+const layerChannels = [8, 16, 32, 32];
+
+function getKernelsForLayer(layer) {
+  const n = layerChannels[layer];
+  const ks = [];
+  for (let i=0; i<n; i++) {
+    ks.push(kernelTypes[i % kernelTypes.length]);
+  }
+  return ks;
+}
+
+// ===================== CONVOLUTION =====================
+function getInputData() {
+  const c = document.getElementById('inputCanvas');
+  const ctx = c.getContext('2d');
+  const img = ctx.getImageData(0,0,c.width,c.height);
+  const W=c.width, H=c.height;
+  const data = new Float32Array(W*H);
+  for (let i=0;i<W*H;i++) data[i] = img.data[i*4]/255;
+  return {data, W, H};
+}
+
+function conv2d(input, W, H, kernel) {
+  const out = new Float32Array(W*H);
+  const kh = kernel.length, kw = kernel[0].length;
+  const ph = Math.floor(kh/2), pw = Math.floor(kw/2);
+  let mn=Infinity, mx=-Infinity;
+  for (let y=0;y<H;y++) {
+    for (let x=0;x<W;x++) {
+      let sum=0;
+      for (let ky=0;ky<kh;ky++) {
+        for (let kx=0;kx<kw;kx++) {
+          const iy=y+ky-ph, ix=x+kx-pw;
+          if (iy>=0&&iy<H&&ix>=0&&ix<W) {
+            sum += input[iy*W+ix] * kernel[ky][kx];
+          }
+        }
+      }
+      // ReLU
+      out[y*W+x] = Math.max(0, sum);
+      if (out[y*W+x]<mn) mn=out[y*W+x];
+      if (out[y*W+x]>mx) mx=out[y*W+x];
+    }
+  }
+  return {out, mn, mx};
+}
+
+function computeFeatureMaps() {
+  const {data, W, H} = getInputData();
+  kernels = getKernelsForLayer(currentLayer);
+
+  // For deeper layers, apply multiple conv passes
+  let current = data;
+  for (let pass=0; pass<currentLayer; pass++) {
+    const blurK = [[1,2,1],[2,4,2],[1,2,1]];
+    const norm = 16;
+    const blurred = new Float32Array(W*H);
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+      let s=0;
+      for (let ky=0;ky<3;ky++) for (let kx=0;kx<3;kx++) {
+        const iy=y+ky-1, ix=x+kx-1;
+        if (iy>=0&&iy<H&&ix>=0&&ix<W) s += current[iy*W+ix]*blurK[ky][kx];
+      }
+      blurred[y*W+x] = Math.max(0, s/norm);
+    }
+    current = blurred;
+  }
+
+  featureMaps = kernels.map(kernel => conv2d(current, W, H, kernel));
+}
+
+// ===================== RENDERING =====================
+function applyColormap(val, cmName) {
+  return colormaps[cmName](val);
+}
+
+function renderFeatureMap(canvas, fmap, W, H) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+  const img = ctx.createImageData(W, H);
+  const cm = colormaps[cmNames[currentColormap]];
+  const range = fmap.mx - fmap.mn;
+  for (let i=0; i<W*H; i++) {
+    const t = range > 0 ? (fmap.out[i] - fmap.mn) / range : 0;
+    const [r,g,b] = cm(t);
+    img.data[i*4]=r; img.data[i*4+1]=g; img.data[i*4+2]=b; img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function buildFmapGrid() {
+  const grid = document.getElementById('fmapGrid');
+  grid.innerHTML = '';
+  const {W, H} = {W:128, H:128};
+  const n = featureMaps.length;
+
+  featureMaps.forEach((fmap, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'fmap-cell';
+    cell.style.animationDelay = (i * 0.025)+'s';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    renderFeatureMap(canvas, fmap, W, H);
+
+    const label = document.createElement('div');
+    label.className = 'fmap-label';
+    label.textContent = `F${i}`;
+
+    cell.appendChild(canvas);
+    cell.appendChild(label);
+    cell.onclick = () => selectFilter(i);
+    grid.appendChild(cell);
+  });
+}
+
+function redrawAll() {
+  buildFmapGrid();
+  drawColorbar();
+  if (selectedFilter !== null) showFilterDetail(selectedFilter);
+}
+
+// ===================== FILTER DETAIL =====================
+const filterDescriptions = [
+  "Responds to Laplacian edges — bright spots where surrounding pixels differ sharply. Fires on corners and isolated bright points.",
+  "Horizontal Sobel — detects left-to-right intensity transitions. Brighter means stronger horizontal edge.",
+  "Vertical Sobel — responds to top-to-bottom transitions. Classic first-layer edge detector.",
+  "Cross-shaped Laplacian — detects blob centers and line intersections. Sensitive to point features.",
+  "Gaussian blur response — smooth, low-frequency content. Low sparsity; fires broadly.",
+  "Box blur — averages local neighborhood. Useful for detecting large uniform regions.",
+  "Vertical stripe detector — responds to column-wise intensity patterns.",
+  "Horizontal stripe detector — responds to row-wise patterns.",
+  "Diagonal edge (top-right) — detects edges oriented at ~45°.",
+  "Diagonal edge (top-left) — detects edges at ~135°.",
+  "Sharpening filter — enhances center vs surround contrast. High-frequency emphasis.",
+  "Vertical line detector — responds to thin vertical structures.",
+  "Prewitt H — similar to Sobel, horizontal gradient detection.",
+  "Prewitt V — vertical gradient, slightly different weighting than Sobel.",
+  "Point detector — responds to isolated high-contrast dots.",
+  "Dot detector (diagonal) — fires on small isolated features.",
+  "Thin vertical bar — very narrow vertical edge response.",
+  "Thin horizontal bar — narrow horizontal edge response.",
+  "Mixed orientation — blends diagonal and cardinal directions.",
+  "Checkerboard-like — responds to rapid alternating patterns.",
+];
+
+function selectFilter(i) {
+  selectedFilter = i;
+  document.querySelectorAll('.fmap-cell').forEach((c,j) => {
+    c.classList.toggle('selected', j===i);
+  });
+  showFilterDetail(i);
+}
+
+function showFilterDetail(i) {
+  const fmap = featureMaps[i];
+  const {W, H} = {W:128, H:128};
+
+  // Detail canvas
+  const dc = document.getElementById('detailCanvas');
+  renderFeatureMap(dc, fmap, W, H);
+
+  // Stats
+  const vals = fmap.out;
+  let sum=0, mx=0;
+  let zeros=0;
+  for (let v of vals) { sum+=v; if(v>mx)mx=v; if(v<0.01)zeros++; }
+  const mean = sum/vals.length;
+  const sparsity = zeros/vals.length;
+
+  document.getElementById('statMax').textContent = mx.toFixed(2);
+  document.getElementById('statMean').textContent = mean.toFixed(2);
+  document.getElementById('statSparsity').textContent = (sparsity*100).toFixed(0)+'%';
+  document.getElementById('filterLabel').textContent = `Layer ${currentLayer+1} · Filter ${i}`;
+
+  // Histogram
+  drawHistogram(vals, fmap.mn, fmap.mx);
+
+  // Interpretation
+  const interp = filterDescriptions[i % filterDescriptions.length];
+  const layerNote = currentLayer === 0
+    ? 'Early layer: detects low-level primitives (edges, gradients).'
+    : currentLayer <= 1
+    ? 'Mid-early layer: combining primitive features into simple textures.'
+    : 'Deep layer: high-level pattern detector, more selective.';
+  document.getElementById('interpText').textContent = layerNote + ' ' + interp;
+
+  // Kernel display
+  const kernel = kernels[i];
+  const kWrap = document.getElementById('kernelWrap');
+  kWrap.innerHTML = '';
+  const allVals = kernel.flat();
+  const kMax = Math.max(...allVals.map(Math.abs)) || 1;
+  kernel.forEach(row => row.forEach(v => {
+    const cell = document.createElement('div');
+    cell.className = 'kernel-cell';
+    const t = (v / kMax + 1) / 2;
+    const [r,g,b] = colormaps.rdbu(t);
+    cell.style.background = `rgb(${r},${g},${b})`;
+    cell.style.color = t > 0.5 ? '#111' : '#eee';
+    cell.textContent = v.toFixed(0);
+    kWrap.appendChild(cell);
+  }));
+}
+
+function drawHistogram(vals, mn, mx) {
+  const c = document.getElementById('histCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width = c.offsetWidth * (devicePixelRatio||1) || 260;
+  const H = c.height = 48;
+  ctx.clearRect(0,0,W,H);
+
+  const bins = 32;
+  const counts = new Array(bins).fill(0);
+  const range = mx - mn;
+  vals.forEach(v => {
+    const b = range > 0 ? Math.min(bins-1, Math.floor((v-mn)/range*bins)) : 0;
+    counts[b]++;
+  });
+  const maxCount = Math.max(...counts);
+  const cm = colormaps[cmNames[currentColormap]];
+
+  counts.forEach((cnt, b) => {
+    const t = b / bins;
+    const [r,g,b2] = cm(t);
+    const barH = (cnt/maxCount) * (H-4);
+    const x = b * W/bins;
+    const bw = W/bins - 1;
+    ctx.fillStyle = `rgb(${r},${g},${b2})`;
+    ctx.fillRect(x, H-barH, bw, barH);
+  });
+
+  // Baseline
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0,H-1); ctx.lineTo(W,H-1); ctx.stroke();
+}
+
+// ===================== CONTROLS =====================
+function selectLayer(i, btn) {
+  currentLayer = i;
+  selectedFilter = null;
+  document.querySelectorAll('.layer-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('filterLabel').textContent = 'click a map →';
+  document.getElementById('statMax').textContent='—';
+  document.getElementById('statMean').textContent='—';
+  document.getElementById('statSparsity').textContent='—';
+  document.getElementById('interpText').textContent = 'Select a feature map to see what this filter detects.';
+  document.getElementById('kernelWrap').innerHTML='';
+  const dc = document.getElementById('detailCanvas');
+  const ctx = dc.getContext('2d');
+  ctx.clearRect(0,0,dc.width,dc.height);
+  const hc = document.getElementById('histCanvas');
+  const hctx = hc.getContext('2d');
+  hctx.clearRect(0,0,hc.width,hc.height);
+  computeFeatureMaps();
+  buildFmapGrid();
+  drawColorbar();
+}
+
+function selectPattern(name, btn) {
+  currentPattern = name;
+  document.querySelectorAll('.pattern-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawInputImage();
+  computeFeatureMaps();
+  buildFmapGrid();
+  drawColorbar();
+  if (selectedFilter !== null) showFilterDetail(selectedFilter);
+}
+
+function switchRTab(name, tab) {
+  document.querySelectorAll('.rpanel-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.rpanel-panel').forEach(p=>p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('rpanel-'+name).classList.add('active');
+}
+
+function highlightPipeStep(i) {
+  document.querySelectorAll('.pipe-step').forEach((s,j) => {
+    s.classList.toggle('active-step', j===i);
+  });
+}
+
+// ===================== INIT =====================
+window.addEventListener('load', () => {
+  drawColormapSwatches();
+  drawInputImage();
+  computeFeatureMaps();
+  buildFmapGrid();
+  drawColorbar();
+  // Auto-select first filter
+  setTimeout(() => selectFilter(0), 300);
+});
+
+window.addEventListener('resize', () => {
+  drawColorbar();
+  if (selectedFilter !== null) {
+    const hc = document.getElementById('histCanvas');
+    const vals = featureMaps[selectedFilter].out;
+    drawHistogram(vals, featureMaps[selectedFilter].mn, featureMaps[selectedFilter].mx);
+  }
+});
+</script>
+</body>
+</html>
