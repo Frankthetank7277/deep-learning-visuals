@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Architecture Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #11111a;
+    --border: #1e1e2e;
+    --accent-blue: #4fa3ff;
+    --accent-green: #4fffb0;
+    --accent-orange: #ff9f4a;
+    --accent-purple: #c084fc;
+    --accent-red: #ff6b6b;
+    --text: #e2e2f0;
+    --muted: #6b6b8a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 3rem 4rem 2rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 1;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 2rem 4rem 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab {
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--panel);
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .tab:first-child { border-radius: 8px 0 0 0; }
+  .tab:last-child { border-radius: 0 8px 0 0; }
+
+  .tab.active {
+    color: var(--text);
+    background: var(--bg);
+    border-color: var(--border);
+  }
+
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--bg);
+  }
+
+  .content {
+    border-top: 1px solid var(--border);
+    padding: 3rem 4rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ==================== INCEPTION MODULE ==================== */
+  .inception-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+  }
+
+  .inception-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: var(--accent-blue);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .layer-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+  }
+
+  .node {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    line-height: 1.3;
+    padding: 8px 10px;
+  }
+
+  .node:hover {
+    transform: scale(1.06);
+    z-index: 10;
+  }
+
+  .node-input {
+    width: 160px;
+    height: 48px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid var(--accent-blue);
+    color: var(--accent-blue);
+    box-shadow: 0 0 20px rgba(79, 163, 255, 0.2);
+  }
+
+  .node-conv1x1 { background: linear-gradient(135deg, #0d2137, #0a1628); border: 2px solid var(--accent-blue); color: var(--accent-blue); }
+  .node-conv3x3 { background: linear-gradient(135deg, #1a0d37, #120a28); border: 2px solid var(--accent-purple); color: var(--accent-purple); }
+  .node-conv5x5 { background: linear-gradient(135deg, #0d1f37, #081830); border: 2px solid var(--accent-green); color: var(--accent-green); }
+  .node-maxpool { background: linear-gradient(135deg, #37200d, #281608); border: 2px solid var(--accent-orange); color: var(--accent-orange); }
+  .node-reduce { opacity: 0.85; }
+
+  .node-concat {
+    width: 320px;
+    height: 52px;
+    background: linear-gradient(135deg, #1e1a0d, #1a1508);
+    border: 2px solid var(--accent-orange);
+    color: var(--accent-orange);
+    box-shadow: 0 0 20px rgba(255, 159, 74, 0.2);
+  }
+
+  .node-output {
+    width: 160px;
+    height: 48px;
+    background: linear-gradient(135deg, #0d2e1a, #082010);
+    border: 2px solid var(--accent-green);
+    color: var(--accent-green);
+    box-shadow: 0 0 20px rgba(79, 255, 176, 0.2);
+  }
+
+  /* SVG canvas for arrows */
+  .svg-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .inception-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+
+  .branch-title {
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .branch-node {
+    width: 100%;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 6px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+    padding: 4px 6px;
+    line-height: 1.2;
+  }
+
+  .branch-node:hover { transform: scale(1.05); z-index: 5; }
+
+  .connector-v {
+    width: 2px;
+    height: 20px;
+    background: var(--muted);
+    opacity: 0.4;
+    position: relative;
+  }
+
+  .connector-v::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--muted);
+    opacity: 0.5;
+  }
+
+  .diagram-wrapper {
+    position: relative;
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2px;
+    height: 28px;
+    background: var(--border);
+    position: relative;
+    margin: 0 auto;
+  }
+
+  .flow-arrow::after {
+    content: '▼';
+    position: absolute;
+    bottom: -10px;
+    font-size: 8px;
+    color: var(--muted);
+  }
+
+  .tooltip {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.7rem;
+    color: var(--text);
+    max-width: 220px;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    line-height: 1.6;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .tooltip.visible { opacity: 1; }
+  .tooltip strong { color: var(--accent-blue); display: block; margin-bottom: 4px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  /* ==================== RESNET ==================== */
+  .resnet-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    max-width: 500px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .resnet-block {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .resblock-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .resblock-body {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .res-node {
+    width: 100%;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+
+  .res-node:hover { transform: scale(1.04); z-index: 5; }
+
+  .res-node.layer { background: #11111a; border: 2px solid var(--accent-purple); color: var(--accent-purple); }
+  .res-node.bn { background: #11111a; border: 2px solid #6b6b8a; color: #6b6b8a; }
+  .res-node.relu { background: #11111a; border: 2px solid var(--accent-orange); color: var(--accent-orange); }
+  .res-node.add { 
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #11111a; border: 2px solid var(--accent-green); color: var(--accent-green);
+    font-size: 1.2rem; 
+    align-self: center;
+  }
+  .res-node.input-out { background: #0a1628; border: 2px solid var(--accent-blue); color: var(--accent-blue); }
+
+  .resnet-arrow {
+    width: 2px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .resnet-arrow.down::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--border);
+  }
+
+  /* Skip connection visual */
+  .skip-conn {
+    position: absolute;
+    right: calc(50% - 180px);
+    top: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .skip-line-v {
+    width: 2px;
+    flex: 1;
+    background: var(--accent-green);
+    opacity: 0.4;
+    position: relative;
+  }
+
+  .skip-line-h {
+    height: 2px;
+    width: 30px;
+    background: var(--accent-green);
+    opacity: 0.4;
+  }
+
+  .resnet-section-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin: 0.5rem 0;
+    padding: 0.3rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--panel);
+  }
+
+  .resnet-full {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    position: relative;
+  }
+
+  .resnet-block-visual {
+    position: relative;
+    width: 340px;
+    margin: 0 auto;
+  }
+
+  .skip-svg {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .info-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-top: 2rem;
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .info-box h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-green);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .info-box p {
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .highlight { color: var(--text); }
+
+  /* Animate on load */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .branch { animation: fadeUp 0.4s ease both; }
+  .branch:nth-child(1) { animation-delay: 0.1s; }
+  .branch:nth-child(2) { animation-delay: 0.2s; }
+  .branch:nth-child(3) { animation-delay: 0.3s; }
+  .branch:nth-child(4) { animation-delay: 0.4s; }
+
+  .resnet-block { animation: fadeUp 0.4s ease both; }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(79, 255, 176, 0.2); }
+    50% { box-shadow: 0 0 25px rgba(79, 255, 176, 0.5); }
+  }
+
+  .res-node.add { animation: pulse 2s ease-in-out infinite; }
+
+  .node-input, .node-concat, .node-output {
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .section-header {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  /* Skip connection label */
+  .skip-label {
+    position: absolute;
+    font-size: 0.55rem;
+    color: var(--accent-green);
+    opacity: 0.7;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    .two-col { grid-template-columns: 1fr; }
+    header, .tabs, .content { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="tooltip" class="tooltip"></div>
+
+<header>
+  <h1>Neural Architecture Explorer</h1>
+  <p>Interactive Visual Guide · Inception Module & Residual Networks</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('inception')">Inception Module</div>
+  <div class="tab" onclick="switchTab('resnet')">ResNet</div>
+  <div class="tab" onclick="switchTab('compare')">Side by Side</div>
+</div>
+
+<div class="content">
+
+  <!-- INCEPTION PANEL -->
+  <div id="panel-inception" class="panel active">
+    <div class="diagram-wrapper">
+      <p class="inception-label">GoogLeNet Inception Module (v1)</p>
+
+      <!-- Input -->
+      <div class="node node-input" 
+           data-tip="input" 
+           style="width:200px;height:48px;"
+           onmouseenter="showTip(event,'Input Feature Map','Previous layer output. Shape: (H × W × C). This tensor is routed into all four parallel branches simultaneously.')"
+           onmouseleave="hideTip()">
+        Input Feature Map
+      </div>
+
+      <div style="height:28px;width:2px;background:var(--border);margin:0 auto;opacity:0.5;position:relative;">
+        <!-- fan-out line -->
+      </div>
+
+      <!-- 4 branches -->
+      <div class="inception-grid" style="position:relative;">
+
+        <!-- Branch 1: 1×1 only -->
+        <div class="branch">
+          <div class="branch-title">Branch 1</div>
+          <div class="branch-node node-conv1x1"
+               onmouseenter="showTip(event,'1×1 Convolution','Captures channel-wise correlations. Cheap to compute. Outputs: 64 channels. Acts as a linear projection through depth.')"
+               onmouseleave="hideTip()">
+            1×1 Conv<br><span style="opacity:0.6">64 ch</span>
+          </div>
+        </div>
+
+        <!-- Branch 2: 1×1 → 3×3 -->
+        <div class="branch">
+          <div class="branch-title">Branch 2</div>
+          <div class="branch-node node-conv1x1 node-reduce"
+               onmouseenter="showTip(event,'1×1 Bottleneck','Dimensionality reduction before expensive 3×3 conv. Cuts computation by ~75%.')"
+               onmouseleave="hideTip()">
+            1×1 Conv<br><span style="opacity:0.6">96 ch reduce</span>
+          </div>
+          <div class="connector-v"></div>
+          <div class="branch-node node-conv3x3"
+               onmouseenter="showTip(event,'3×3 Convolution','Captures local spatial structure. Receptive field: 3×3 pixels. Outputs: 128 channels.')"
+               onmouseleave="hideTip()">
+            3×3 Conv<br><span style="opacity:0.6">128 ch</span>
+          </div>
+        </div>
+
+        <!-- Branch 3: 1×1 → 5×5 -->
+        <div class="branch">
+          <div class="branch-title">Branch 3</div>
+          <div class="branch-node node-conv5x5 node-reduce"
+               style="border-color:var(--accent-green);color:var(--accent-green);"
+               onmouseenter="showTip(event,'1×1 Bottleneck','Reduces channels before costly 5×5 conv. Without this, 5×5 conv would dominate compute budget.')"
+               onmouseleave="hideTip()">
+            1×1 Conv<br><span style="opacity:0.6">16 ch reduce</span>
+          </div>
+          <div class="connector-v"></div>
+          <div class="branch-node node-conv5x5"
+               onmouseenter="showTip(event,'5×5 Convolution','Captures large-scale spatial patterns. Higher receptive field = global context. Outputs: 32 channels.')"
+               onmouseleave="hideTip()">
+            5×5 Conv<br><span style="opacity:0.6">32 ch</span>
+          </div>
+        </div>
+
+        <!-- Branch 4: MaxPool → 1×1 -->
+        <div class="branch">
+          <div class="branch-title">Branch 4</div>
+          <div class="branch-node node-maxpool"
+               onmouseenter="showTip(event,'3×3 Max Pooling','Preserves max-activated features. Stride=1, same padding keeps spatial dims. Adds translation invariance.')"
+               onmouseleave="hideTip()">
+            3×3 MaxPool<br><span style="opacity:0.6">stride 1</span>
+          </div>
+          <div class="connector-v"></div>
+          <div class="branch-node node-conv1x1"
+               onmouseenter="showTip(event,'1×1 Projection','Reduces pooled feature channels before concat. Outputs: 32 channels.')"
+               onmouseleave="hideTip()">
+            1×1 Conv<br><span style="opacity:0.6">32 ch</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="height:28px;width:2px;background:var(--border);margin:8px auto;opacity:0.5;"></div>
+
+      <!-- Concat -->
+      <div class="node node-concat"
+           onmouseenter="showTip(event,'Depth Concatenation','Channels from all 4 branches stacked along depth. 64+128+32+32 = 256 output channels. No spatial information lost.')"
+           onmouseleave="hideTip()">
+        DepthConcat [ 64 + 128 + 32 + 32 = 256 ch ]
+      </div>
+
+      <div style="height:28px;width:2px;background:var(--border);margin:8px auto;opacity:0.5;position:relative;">
+        <div style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--muted);">▼</div>
+      </div>
+
+      <!-- Output -->
+      <div class="node node-output" style="width:200px;"
+           onmouseenter="showTip(event,'Output Feature Map','Rich multi-scale representation. Same H×W as input (same padding). 256 channels encode features at 1×1, 3×3, and 5×5 scales simultaneously.')"
+           onmouseleave="hideTip()">
+        Output (H × W × 256)
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-blue)"></div> 1×1 Conv (pointwise)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-purple)"></div> 3×3 Conv (local)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-green)"></div> 5×5 Conv (global)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange)"></div> Max Pooling / Concat</div>
+      <div class="legend-item" style="font-size:0.6rem;color:var(--muted)">💡 Hover nodes for details</div>
+    </div>
+
+    <div class="info-box" style="margin-top:2rem;max-width:100%;">
+      <h3>Key Insight: Multi-Scale Parallel Processing</h3>
+      <p>The Inception module's core innovation is processing the same input through <span class="highlight">multiple filter sizes simultaneously</span>, then concatenating results. This lets the network learn which scale is most informative at each layer — rather than committing to one filter size. The <span class="highlight">1×1 bottleneck</span> convolutions before the 3×3 and 5×5 branches are crucial: they reduce channel depth first, cutting FLOPs by ~10× while preserving representational power.</p>
+    </div>
+  </div>
+
+  <!-- RESNET PANEL -->
+  <div id="panel-resnet" class="panel">
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <p class="section-header">Residual Block (ResNet)</p>
+
+      <div class="resnet-full">
+
+        <!-- Input node -->
+        <div class="res-node input-out" style="width:260px;"
+             onmouseenter="showTip(event,'Input x','The input tensor. Key: this exact tensor is also forwarded via the skip connection, bypassing the weight layers.')"
+             onmouseleave="hideTip()">
+          Input x
+        </div>
+
+        <!-- The block with skip connection -->
+        <div class="resnet-block-visual" style="height:320px;margin-top:0;">
+
+          <!-- Skip connection SVG -->
+          <svg class="skip-svg" viewBox="0 0 340 320" preserveAspectRatio="none">
+            <!-- Skip line: right side bypass -->
+            <defs>
+              <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto">
+                <polygon points="0 0, 8 3, 0 6" fill="#4fffb0" opacity="0.6"/>
+              </marker>
+            </defs>
+            <!-- Right bypass line -->
+            <path d="M 300 20 L 320 20 L 320 290 L 300 290" 
+                  stroke="#4fffb0" stroke-width="2" fill="none" opacity="0.4"
+                  marker-end="url(#arrowhead)"/>
+            <!-- Label -->
+            <text x="328" y="165" fill="#4fffb0" opacity="0.7" font-size="9" font-family="Space Mono" 
+                  transform="rotate(90, 328, 165)" text-anchor="middle">SKIP CONNECTION (identity)</text>
+          </svg>
+
+          <!-- Main path nodes -->
+          <div style="position:absolute;left:50%;top:20px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:0;width:260px;">
+
+            <div style="height:16px;width:2px;background:var(--border);opacity:0.4;"></div>
+
+            <div class="res-node layer" style="width:100%;"
+                 onmouseenter="showTip(event,'Conv 3×3 (Weight Layer 1)','3×3 spatial convolution. Same padding preserves spatial dims. BatchNorm follows. No bias typically used with BN.')"
+                 onmouseleave="hideTip()">
+              Conv 3×3 · BN
+            </div>
+
+            <div style="height:14px;width:2px;background:var(--border);opacity:0.4;position:relative;">
+              <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);">▼</div>
+            </div>
+
+            <div class="res-node relu" style="width:100%;"
+                 onmouseenter="showTip(event,'ReLU Activation','Applied after first BN. ReLU is NOT applied after the addition in the original ResNet paper (He et al., 2016).')"
+                 onmouseleave="hideTip()">
+              ReLU
+            </div>
+
+            <div style="height:14px;width:2px;background:var(--border);opacity:0.4;position:relative;">
+              <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);">▼</div>
+            </div>
+
+            <div class="res-node layer" style="width:100%;"
+                 onmouseenter="showTip(event,'Conv 3×3 (Weight Layer 2)','Second 3×3 conv. Followed by BN. The residual mapping F(x) is computed. Network learns F(x) = H(x) - x.')"
+                 onmouseleave="hideTip()">
+              Conv 3×3 · BN
+            </div>
+
+            <div style="height:22px;width:2px;background:var(--border);opacity:0.4;position:relative;">
+              <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);">▼</div>
+            </div>
+
+            <!-- Addition node -->
+            <div class="res-node add"
+                 onmouseenter="showTip(event,'Element-wise Addition ⊕','F(x) + x — the skip connection adds the original input back. If F(x)≈0 (identity), gradient flows unimpeded. Solves vanishing gradient.')"
+                 onmouseleave="hideTip()">
+              ⊕
+            </div>
+
+            <div style="height:14px;width:2px;background:var(--border);opacity:0.4;position:relative;">
+              <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);font-size:7px;color:var(--muted);">▼</div>
+            </div>
+
+            <div class="res-node relu" style="width:100%;"
+                 onmouseenter="showTip(event,'ReLU (post-add)','Final activation after skip addition. Output: H(x) = F(x) + x. This is passed to the next block.')"
+                 onmouseleave="hideTip()">
+              ReLU
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div class="res-node input-out" style="width:260px;border-color:var(--accent-green);color:var(--accent-green);margin-top:0px;"
+             onmouseenter="showTip(event,'Output H(x)','H(x) = F(x) + x. The network learned the residual F(x) = H(x) - x rather than the full mapping directly. Easier to optimize.')"
+             onmouseleave="hideTip()">
+          Output H(x) = F(x) + x
+        </div>
+      </div>
+
+      <!-- Equation -->
+      <div style="margin-top:2rem;padding:1rem 2rem;background:var(--panel);border:1px solid var(--border);border-radius:8px;text-align:center;">
+        <div style="font-size:0.65rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem;">Residual Learning Formulation</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.2rem;color:var(--text);">
+          <span style="color:var(--accent-green)">H(x)</span> = 
+          <span style="color:var(--accent-purple)">F(x, {Wᵢ})</span> + 
+          <span style="color:var(--accent-blue)">x</span>
+        </div>
+        <div style="font-size:0.6rem;color:var(--muted);margin-top:0.5rem;">
+          The layers learn the residual mapping F rather than the full desired mapping H
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h3>Key Insight: Shortcut Connections Enable Depth</h3>
+        <p>ResNets solve the <span class="highlight">degradation problem</span>: plain very deep networks get worse, not because of overfitting, but due to optimization difficulty. By adding skip connections, the network only needs to learn the <span class="highlight">residual F(x)</span> — the deviation from identity. If a layer is not useful, its weights can go to zero and the skip connection carries the signal. Critically, gradients flow <span class="highlight">directly through skip paths</span> during backprop, preventing vanishing gradients in networks 50–152+ layers deep.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE PANEL -->
+  <div id="panel-compare" class="panel">
+    <div class="two-col">
+
+      <!-- Inception mini -->
+      <div>
+        <p style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--accent-blue);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1.5rem;">Inception Module</p>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+          <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-blue);border-radius:6px;font-size:0.6rem;color:var(--accent-blue);font-weight:700;">Input x</div>
+          <!-- Branches compact -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-blue);border-radius:5px;font-size:0.5rem;color:var(--accent-blue);font-weight:700;text-align:center;">1×1<br>Conv</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-blue);border-radius:5px;font-size:0.5rem;color:var(--accent-blue);font-weight:700;text-align:center;">1×1</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-purple);border-radius:5px;font-size:0.5rem;color:var(--accent-purple);font-weight:700;text-align:center;">3×3<br>Conv</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-green);border-radius:5px;font-size:0.5rem;color:var(--accent-green);font-weight:700;text-align:center;">1×1</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-green);border-radius:5px;font-size:0.5rem;color:var(--accent-green);font-weight:700;text-align:center;">5×5<br>Conv</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-orange);border-radius:5px;font-size:0.5rem;color:var(--accent-orange);font-weight:700;text-align:center;">MaxPool</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:100%;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-blue);border-radius:5px;font-size:0.5rem;color:var(--accent-blue);font-weight:700;text-align:center;">1×1<br>Conv</div>
+            </div>
+          </div>
+          <div style="width:100%;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-orange);border-radius:6px;font-size:0.6rem;color:var(--accent-orange);font-weight:700;">DepthConcat</div>
+          <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-green);border-radius:6px;font-size:0.6rem;color:var(--accent-green);font-weight:700;">Output</div>
+        </div>
+
+        <div style="margin-top:1.5rem;font-size:0.65rem;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:1rem;">
+          <strong style="color:var(--text);display:block;margin-bottom:6px;">Core Problem Solved</strong>
+          Choosing filter size. Inception says: use all of them in parallel, let the network learn which matters.
+          <br><br>
+          <strong style="color:var(--text);display:block;margin-bottom:6px;">Architecture Use</strong>
+          Repeated inception modules form GoogLeNet. Network goes <em>wider</em> at each stage.
+        </div>
+      </div>
+
+      <!-- ResNet mini -->
+      <div>
+        <p style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--accent-purple);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:1.5rem;">Residual Block</p>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;">
+          <!-- Skip connection visual (simplified) -->
+          <div style="position:relative;width:220px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 auto;">
+              <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-blue);border-radius:6px;font-size:0.6rem;color:var(--accent-blue);font-weight:700;">Input x</div>
+              <div style="width:2px;height:12px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-purple);border-radius:6px;font-size:0.6rem;color:var(--accent-purple);font-weight:700;">Conv 3×3 + BN</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:180px;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-orange);border-radius:6px;font-size:0.6rem;color:var(--accent-orange);font-weight:700;">ReLU</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-purple);border-radius:6px;font-size:0.6rem;color:var(--accent-purple);font-weight:700;">Conv 3×3 + BN</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-green);font-size:1.1rem;color:var(--accent-green);font-weight:700;animation:pulse 2s ease-in-out infinite;">⊕</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:180px;height:34px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-orange);border-radius:6px;font-size:0.6rem;color:var(--accent-orange);font-weight:700;">ReLU</div>
+              <div style="width:2px;height:10px;background:var(--border);opacity:0.4;"></div>
+              <div style="width:180px;height:38px;display:flex;align-items:center;justify-content:center;border:2px solid var(--accent-green);border-radius:6px;font-size:0.6rem;color:var(--accent-green);font-weight:700;">Output H(x)</div>
+            </div>
+            <!-- Skip line -->
+            <svg style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:visible;">
+              <defs><marker id="ah2" markerWidth="7" markerHeight="5" refX="3.5" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#4fffb0" opacity="0.6"/></marker></defs>
+              <path d="M 200 19 L 215 19 L 215 340 L 200 340" stroke="#4fffb0" stroke-width="1.5" fill="none" opacity="0.4" marker-end="url(#ah2)"/>
+            </svg>
+          </div>
+        </div>
+
+        <div style="margin-top:1.5rem;font-size:0.65rem;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:1rem;">
+          <strong style="color:var(--text);display:block;margin-bottom:6px;">Core Problem Solved</strong>
+          Degradation in very deep networks. Skip connections allow gradients to flow directly, enabling 100+ layer networks.
+          <br><br>
+          <strong style="color:var(--text);display:block;margin-bottom:6px;">Architecture Use</strong>
+          Stacked residual blocks form ResNet-18/34/50/101/152. Network goes <em>deeper</em>.
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparison table -->
+    <div style="margin-top:3rem;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <div style="padding:1rem 1.5rem;background:var(--panel);font-family:'Syne',sans-serif;font-size:0.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid var(--border);">Comparison</div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.65rem;">
+        <thead>
+          <tr style="background:var(--panel);">
+            <th style="padding:0.75rem 1.5rem;text-align:left;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);">Property</th>
+            <th style="padding:0.75rem 1.5rem;text-align:left;color:var(--accent-blue);font-weight:700;border-bottom:1px solid var(--border);">Inception</th>
+            <th style="padding:0.75rem 1.5rem;text-align:left;color:var(--accent-purple);font-weight:700;border-bottom:1px solid var(--border);">ResNet</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.75rem 1.5rem;color:var(--muted);">Key Innovation</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Parallel multi-scale filters</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Skip / shortcut connections</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+            <td style="padding:0.75rem 1.5rem;color:var(--muted);">Problem Solved</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Filter size selection + efficiency</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Vanishing gradients in deep nets</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:0.75rem 1.5rem;color:var(--muted);">Depth Direction</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Wider (parallel branches)</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Deeper (stacked blocks)</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);">
+            <td style="padding:0.75rem 1.5rem;color:var(--muted);">Typical Depth</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">22 layers (GoogLeNet)</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">18–152+ layers</td>
+          </tr>
+          <tr>
+            <td style="padding:0.75rem 1.5rem;color:var(--muted);">Paper</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">Szegedy et al., 2014</td>
+            <td style="padding:0.75rem 1.5rem;color:var(--text);">He et al., 2016</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const tooltip = document.getElementById('tooltip');
+
+  function showTip(e, title, text) {
+    tooltip.innerHTML = `<strong>${title}</strong>${text}`;
+    tooltip.classList.add('visible');
+    moveTip(e);
+  }
+
+  function hideTip() {
+    tooltip.classList.remove('visible');
+  }
+
+  document.addEventListener('mousemove', moveTip);
+
+  function moveTip(e) {
+    let x = e.clientX + 16;
+    let y = e.clientY + 16;
+    if (x + 240 > window.innerWidth) x = e.clientX - 240;
+    if (y + 120 > window.innerHeight) y = e.clientY - 120;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+  }
+</script>
+
+</body>
+</html>
