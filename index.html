@@ -6,28 +6,9 @@
 <title>Deep Learning Visuals</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
-
-  :root {
-    --bg: #050810;
-    --surface: #0d1220;
-    --border: #1a2540;
-    --text: #e2e8f0;
-    --dim: #64748b;
-    --accent: #00e5ff;
-  }
-
+  :root { --bg: #050810; --surface: #0d1220; --border: #1a2540; --text: #e2e8f0; --dim: #64748b; --accent: #00e5ff; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    min-height: 100vh;
-    padding: 60px 40px;
-    max-width: 700px;
-    margin: 0 auto;
-  }
-
+  body { background: var(--bg); color: var(--text); font-family: 'Space Mono', monospace; min-height: 100vh; padding: 60px 40px; max-width: 700px; margin: 0 auto; }
   .eyebrow { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; }
   h1 { font-family: 'Syne', sans-serif; font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.1; background: linear-gradient(135deg, #fff 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
   .subtitle { font-size: 11px; color: var(--dim); margin-bottom: 60px; letter-spacing: 0.05em; }
@@ -45,7 +26,6 @@
 </style>
 </head>
 <body>
-
 <div class="eyebrow">UIUC · BIOE 486</div>
 <h1>Deep Learning<br>Visuals</h1>
 <p class="subtitle">Interactive study aids // Frank Tank</p>
@@ -79,10 +59,12 @@
     <a href="cnn_interpretability.html"><div class="viz-info"><div class="viz-name">CNN Interpretability</div><div class="viz-desc">Latent codes · filter visualization · class models · saliency maps</div></div><div style="display:flex;align-items:center;gap:8px"><span class="viz-tag">Interpretability</span><span class="arrow">→</span></div></a>
   </li>
   <li class="viz-item" style="--item-color: #f472b6">
-    <a href="virtual_staining_v2.html"><div class="viz-info"><div class="viz-name">Virtual Staining</div><div class="viz-desc">Unstained → H&E · label-free tissue imaging · deep learning stain synthesis</div></div><div style="display:flex;align-items:center;gap:8px"><span class="viz-tag">Histology</span><span class="arrow">→</span></div></a>
+    <a href="virtual_staining_v2.html"><div class="viz-info"><div class="viz-name">Virtual Staining</div><div class="viz-desc">Unstained → H&amp;E · label-free tissue imaging · deep learning stain synthesis</div></div><div style="display:flex;align-items:center;gap:8px"><span class="viz-tag">Histology</span><span class="arrow">→</span></div></a>
+  </li>
+  <li class="viz-item" style="--item-color: #4df0c4">
+    <a href="data_augmentation.html"><div class="viz-info"><div class="viz-name">Data Augmentation</div><div class="viz-desc">Affine · scaling · shearing · elastic deformation · intensity transforms · pipeline</div></div><div style="display:flex;align-items:center;gap:8px"><span class="viz-tag">Training</span><span class="arrow">→</span></div></a>
   </li>
 </ul>
 <div class="footer">Generated with Claude · hosted on GitHub Pages</div>
-
 </body>
 </html>
