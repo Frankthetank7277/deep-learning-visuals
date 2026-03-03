@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Augmentation · Deep Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Literata:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08090d;
+  --s1: #0f1118;
+  --s2: #141720;
+  --border: #1f2535;
+  --text: #dde3f0;
+  --muted: #506080;
+  --bright: #ffffff;
+  --c1: #4df0c4; /* teal */
+  --c2: #ff8c5a; /* orange */
+  --c3: #a78bfa; /* violet */
+  --c4: #fbbf24; /* amber */
+  --c5: #f472b6; /* pink */
+  --c6: #60c8ff; /* sky */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Literata', Georgia, serif;
+  overflow-x: hidden;
+}
+
+/* ── HERO ── */
+.hero {
+  padding: 80px 56px 64px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: 'AUG';
+  position: absolute;
+  right: -20px; top: -30px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 280px;
+  color: rgba(77,240,196,0.03);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.hero-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .35em;
+  text-transform: uppercase;
+  color: var(--c1);
+  margin-bottom: 18px;
+}
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(52px, 10vw, 110px);
+  line-height: .92;
+  color: var(--bright);
+  margin-bottom: 28px;
+  letter-spacing: .02em;
+}
+.hero-title span { color: var(--c1); }
+.hero-body {
+  max-width: 580px;
+  font-size: .95rem;
+  font-weight: 300;
+  line-height: 1.75;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── NAV STRIP ── */
+.nav-strip {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.nav-strip::-webkit-scrollbar { display: none; }
+.nav-pill {
+  flex-shrink: 0;
+  padding: 14px 22px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  border-right: 1px solid var(--border);
+  transition: all .18s;
+  background: transparent;
+  border-top: none; border-left: none;
+  white-space: nowrap;
+}
+.nav-pill:hover { color: var(--text); }
+.nav-pill.active { color: var(--c1); border-bottom-color: var(--c1); }
+
+/* ── MAIN LAYOUT ── */
+main { padding: 0 56px 96px; }
+
+/* ── SECTIONS ── */
+.section { margin-top: 72px; }
+.sec-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.sec-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3.5rem;
+  color: var(--border);
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sec-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+  color: var(--bright);
+  line-height: 1;
+  letter-spacing: .04em;
+}
+.sec-desc {
+  font-size: .85rem;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 680px;
+  margin-bottom: 32px;
+  font-style: italic;
+}
+
+/* ── SCARCITY SECTION ── */
+.scarcity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media(max-width:700px){ .scarcity-grid { grid-template-columns: 1fr; } }
+
+.scarcity-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.scarcity-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.sc-c1::before { background: linear-gradient(90deg, var(--c2), transparent); }
+.sc-c2::before { background: linear-gradient(90deg, var(--c1), transparent); }
+.sc-c3::before { background: linear-gradient(90deg, var(--c3), transparent); }
+.sc-c4::before { background: linear-gradient(90deg, var(--c4), transparent); }
+
+.card-icon { font-size: 1.8rem; margin-bottom: 12px; }
+.card-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: .08em;
+  color: var(--bright);
+  margin-bottom: 8px;
+}
+.card-body { font-size: .8rem; color: var(--muted); line-height: 1.65; }
+
+.sample-chart {
+  margin-top: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* Generalization curve */
+.gen-wrap {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  margin-top: 20px;
+}
+.gen-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .2em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+/* ── AUGMENTATION CARDS ── */
+.aug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.aug-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color .2s, transform .2s;
+}
+.aug-card:hover { transform: translateY(-3px); }
+
+.aug-card-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.aug-color-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+}
+.aug-card-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: .1em;
+  color: var(--bright);
+}
+.aug-card-tag {
+  margin-left: auto;
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.aug-canvas-wrap {
+  position: relative;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.canvas-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.canvas-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .12em;
+  color: var(--muted);
+  text-align: center;
+}
+canvas.aug { border-radius: 4px; display: block; }
+
+.aug-card-body {
+  padding: 14px 20px 18px;
+}
+.aug-desc {
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+.aug-params {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.aug-param {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .08em;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.btn-regen {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px 16px;
+  padding: 9px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .15em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .18s;
+  text-transform: uppercase;
+}
+.btn-regen:hover { color: var(--text); border-color: var(--muted); }
+
+/* ── PIPELINE SECTION ── */
+.pipeline-wrap {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px;
+  overflow-x: auto;
+}
+.pipeline-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.pipeline-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 700px;
+}
+.pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.pipeline-canvas-wrap {
+  position: relative;
+}
+.pipeline-step-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  text-align: center;
+}
+.pipeline-arrow {
+  font-size: 1.1rem;
+  color: var(--border);
+  flex-shrink: 0;
+  padding: 0 6px;
+  margin-bottom: 20px;
+}
+
+/* ── IMPACT TABLE ── */
+.impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.impact-table th {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.impact-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(31,37,53,0.6);
+  vertical-align: middle;
+  color: var(--text);
+}
+.impact-table tr:last-child td { border-bottom: none; }
+.impact-table tr:hover td { background: rgba(255,255,255,0.02); }
+.bar-cell { width: 180px; }
+.bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .6s ease;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .06em;
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 56px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .1em;
+}
+
+@media(max-width:600px){
+  .hero, main, footer { padding-left: 24px; padding-right: 24px; }
+  main { padding-left: 20px; padding-right: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">Deep Learning · BIOE 486 · Data Pipeline</div>
+  <h1 class="hero-title">Data<br><span>Augmentation</span></h1>
+  <p class="hero-body">In biomedical deep learning, labeled data is almost always scarce. Augmentation artificially expands the training set by applying label-preserving transformations — teaching the network invariance to irrelevant variation while preserving diagnostic content.</p>
+</div>
+
+<!-- NAV -->
+<nav class="nav-strip">
+  <button class="nav-pill active" onclick="scrollTo({top:0,behavior:'smooth'})">Overview</button>
+  <button class="nav-pill" onclick="document.getElementById('s-scarcity').scrollIntoView({behavior:'smooth'})">Data Scarcity</button>
+  <button class="nav-pill" onclick="document.getElementById('s-affine').scrollIntoView({behavior:'smooth'})">Affine</button>
+  <button class="nav-pill" onclick="document.getElementById('s-nonlinear').scrollIntoView({behavior:'smooth'})">Nonlinear</button>
+  <button class="nav-pill" onclick="document.getElementById('s-intensity').scrollIntoView({behavior:'smooth'})">Intensity</button>
+  <button class="nav-pill" onclick="document.getElementById('s-pipeline').scrollIntoView({behavior:'smooth'})">Pipeline</button>
+  <button class="nav-pill" onclick="document.getElementById('s-impact').scrollIntoView({behavior:'smooth'})">Impact</button>
+</nav>
+
+<main>
+
+<!-- ══ SECTION 1: DATA SCARCITY ══ -->
+<section class="section" id="s-scarcity">
+  <div class="sec-header">
+    <div class="sec-num">01</div>
+    <div class="sec-title">The Problem of Data Scarcity</div>
+  </div>
+  <p class="sec-desc">Medical imaging datasets are expensive, slow, and ethically constrained to acquire. A network that sees too few examples learns the training set's specific appearance rather than the underlying biology.</p>
+
+  <div class="scarcity-grid">
+    <div class="scarcity-card sc-c1">
+      <div class="card-icon">🔬</div>
+      <div class="card-title">Why Medical Data is Scarce</div>
+      <div class="card-body">Annotation requires expert pathologists — each slide may take hours to label. Patient privacy (HIPAA/GDPR) limits sharing. Rare diseases may yield only dozens of cases worldwide. Imaging protocols vary across institutions, fragmenting datasets.</div>
+    </div>
+    <div class="scarcity-card sc-c2">
+      <div class="card-icon">📉</div>
+      <div class="card-title">Overfitting &amp; the Generalization Gap</div>
+      <div class="card-body">With small datasets, a network memorizes training examples rather than learning generalizable features. Training accuracy climbs to near 100% while validation accuracy plateaus or collapses — the classic overfitting signature.</div>
+      <div class="sample-chart">
+        <canvas id="overfitCanvas" width="280" height="120"></canvas>
+      </div>
+    </div>
+    <div class="scarcity-card sc-c3">
+      <div class="card-icon">🔁</div>
+      <div class="card-title">Augmentation as Regularization</div>
+      <div class="card-body">Each augmented sample is a new view of the same underlying label. The network sees the same tissue at different orientations, scales, and staining conditions — learning that these variations are irrelevant to classification. This acts as implicit regularization, reducing the generalization gap without requiring more real data.</div>
+    </div>
+    <div class="scarcity-card sc-c4">
+      <div class="card-icon">⚖️</div>
+      <div class="card-title">Class Imbalance &amp; Rare Events</div>
+      <div class="card-body">Rare pathologies (e.g. mitotic figures, micrometastases) are heavily underrepresented. Selective augmentation of minority classes rebalances the training distribution, preventing the network from defaulting to majority-class predictions.</div>
+    </div>
+  </div>
+
+  <div class="gen-wrap">
+    <div class="gen-label">// Training vs. Validation Accuracy — With and Without Augmentation</div>
+    <canvas id="genCurveCanvas" width="100" height="200" style="width:100%;height:200px;display:block;"></canvas>
+  </div>
+</section>
+
+<!-- ══ SECTION 2: AFFINE TRANSFORMS ══ -->
+<section class="section" id="s-affine">
+  <div class="sec-header">
+    <div class="sec-num">02</div>
+    <div class="sec-title">Affine Transformations</div>
+  </div>
+  <p class="sec-desc">Affine transforms preserve straight lines and parallelism. They include translation, rotation, scaling, and shearing — all expressible as a single 3×3 matrix multiplication in homogeneous coordinates.</p>
+
+  <div class="aug-grid">
+
+    <!-- ROTATION -->
+    <div class="aug-card" id="card-rotate">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c1)"></div>
+        <div class="aug-card-title">Rotation</div>
+        <div class="aug-card-tag">Affine</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-rot-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-rot-30" width="100" height="100"></canvas><div class="canvas-label" id="lbl-rot-30">+30°</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-rot-90" width="100" height="100"></canvas><div class="canvas-label" id="lbl-rot-90">+90°</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-rot-180" width="100" height="100"></canvas><div class="canvas-label" id="lbl-rot-180">+180°</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawRotation()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Rotates the image about its center. In histology, tissue orientation is arbitrary — a cell nucleus looks the same at 0° or 270°. Full 360° rotation is typically safe for H&amp;E patches.</div>
+        <div class="aug-params">
+          <span class="aug-param">θ ∈ [0°, 360°]</span>
+          <span class="aug-param">center-pivot</span>
+          <span class="aug-param">bilinear interp.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCALING -->
+    <div class="aug-card" id="card-scale">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c2)"></div>
+        <div class="aug-card-title">Scaling</div>
+        <div class="aug-card-tag">Affine</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-sc-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sc-zoom" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sc-zoom">×1.4</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sc-shrink" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sc-shrink">×0.7</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sc-aniso" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sc-aniso">×1.3/×0.8</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawScaling()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Isotropic scaling simulates varying magnification (zoom in/out). Anisotropic scaling stretches one axis independently — mimicking tissue section thickness variation or scanner differences.</div>
+        <div class="aug-params">
+          <span class="aug-param">s ∈ [0.7, 1.4]</span>
+          <span class="aug-param">isotropic / anisotropic</span>
+          <span class="aug-param">crop-to-size</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHEARING -->
+    <div class="aug-card" id="card-shear">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c3)"></div>
+        <div class="aug-card-title">Shearing</div>
+        <div class="aug-card-tag">Affine</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-sh-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sh-x" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sh-x">shear x</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sh-y" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sh-y">shear y</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-sh-xy" width="100" height="100"></canvas><div class="canvas-label" id="lbl-sh-xy">shear xy</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawShearing()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Shearing slants the image along one axis — equivalent to a parallelogram distortion. Simulates oblique cutting angles during tissue sectioning and slight slide misalignment.</div>
+        <div class="aug-params">
+          <span class="aug-param">k ∈ [−0.3, 0.3]</span>
+          <span class="aug-param">x-axis / y-axis</span>
+          <span class="aug-param">matrix: [[1,k,0],[0,1,0]]</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLIPPING/TRANSLATION -->
+    <div class="aug-card" id="card-flip">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c4)"></div>
+        <div class="aug-card-title">Flip &amp; Translation</div>
+        <div class="aug-card-tag">Affine</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-fl-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-fl-h" width="100" height="100"></canvas><div class="canvas-label">Horiz. flip</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-fl-v" width="100" height="100"></canvas><div class="canvas-label">Vert. flip</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-fl-tx" width="100" height="100"></canvas><div class="canvas-label" id="lbl-fl-tx">Translate</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawFlip()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Horizontal and vertical flips are the cheapest augmentations — zero information loss, exact label preservation. Translation shifts the image, simulating centering variation in the field of view.</div>
+        <div class="aug-params">
+          <span class="aug-param">p=0.5 flip</span>
+          <span class="aug-param">tx,ty ∈ [−20%, +20%]</span>
+          <span class="aug-param">reflect padding</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SECTION 3: NONLINEAR DEFORMATION ══ -->
+<section class="section" id="s-nonlinear">
+  <div class="sec-header">
+    <div class="sec-num">03</div>
+    <div class="sec-title">Nonlinear Deformation</div>
+  </div>
+  <p class="sec-desc">Elastic and B-spline deformations warp the image in spatially varying, non-uniform ways — mimicking the natural mechanical deformation of soft biological tissue during sectioning and mounting.</p>
+
+  <div class="aug-grid">
+
+    <!-- ELASTIC -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c5)"></div>
+        <div class="aug-card-title">Elastic Deformation</div>
+        <div class="aug-card-tag">Nonlinear</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-el-orig" width="120" height="120"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-el-mild" width="120" height="120"></canvas><div class="canvas-label" id="lbl-el-mild">Mild (α=30)</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-el-strong" width="120" height="120"></canvas><div class="canvas-label" id="lbl-el-strong">Strong (α=80)</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawElastic()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">A smooth random displacement field (generated by smoothing random noise with a Gaussian kernel) is applied per-pixel. α controls displacement magnitude; σ controls smoothness. Seminal for U-Net segmentation (Ronneberger 2015).</div>
+        <div class="aug-params">
+          <span class="aug-param">α ∈ [10, 120]</span>
+          <span class="aug-param">σ ∈ [5, 12]</span>
+          <span class="aug-param">Gaussian smooth field</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRID DISTORTION / BSPLINE -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c6)"></div>
+        <div class="aug-card-title">Grid / B-Spline Distortion</div>
+        <div class="aug-card-tag">Nonlinear</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-gs-orig" width="120" height="120"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-gs-grid" width="120" height="120"></canvas><div class="canvas-label">Grid distort</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-gs-bsp" width="120" height="120"></canvas><div class="canvas-label">B-spline warp</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawGridSpline()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Grid distortion perturbs a regular grid of control points and interpolates. B-spline warping uses smooth basis functions between control points for anatomically plausible deformations — common in registration-based augmentation pipelines.</div>
+        <div class="aug-params">
+          <span class="aug-param">grid 4×4 to 8×8</span>
+          <span class="aug-param">distort limit ±0.3</span>
+          <span class="aug-param">cubic interpolation</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SECTION 4: PIXEL INTENSITY ══ -->
+<section class="section" id="s-intensity">
+  <div class="sec-header">
+    <div class="sec-num">04</div>
+    <div class="sec-title">Pixel Intensity Transformations</div>
+  </div>
+  <p class="sec-desc">Intensity transforms alter pixel values without changing spatial structure. They simulate scanner variability, staining protocol differences, and lighting inconsistencies — a major source of domain shift in clinical deployment.</p>
+
+  <div class="aug-grid">
+
+    <!-- BRIGHTNESS / CONTRAST -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c4)"></div>
+        <div class="aug-card-title">Brightness &amp; Contrast</div>
+        <div class="aug-card-tag">Intensity</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-bc-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-bc-bright" width="100" height="100"></canvas><div class="canvas-label" id="lbl-bc-bright">+Bright</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-bc-dark" width="100" height="100"></canvas><div class="canvas-label" id="lbl-bc-dark">−Bright</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-bc-cont" width="100" height="100"></canvas><div class="canvas-label" id="lbl-bc-cont">+Contrast</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawBrightnessContrast()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Linear scaling of pixel intensities. Brightness adds a constant offset; contrast multiplies by a gain factor. Simulates under/overexposure and variations in slide scanner lamp intensity.</div>
+        <div class="aug-params">
+          <span class="aug-param">I' = α·I + β</span>
+          <span class="aug-param">α ∈ [0.7, 1.4]</span>
+          <span class="aug-param">β ∈ [−30, +30]</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAMMA -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c1)"></div>
+        <div class="aug-card-title">Gamma Correction</div>
+        <div class="aug-card-tag">Intensity</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-gm-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-gm-low" width="100" height="100"></canvas><div class="canvas-label" id="lbl-gm-low">γ=0.5</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-gm-hi" width="100" height="100"></canvas><div class="canvas-label" id="lbl-gm-hi">γ=1.8</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-gm-curve" width="100" height="100"></canvas><div class="canvas-label">γ curve</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawGamma()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Nonlinear tone mapping: I' = I^γ. γ &lt; 1 brightens (lifts shadows); γ &gt; 1 darkens (compresses highlights). Simulates monitor calibration differences and varying tissue transparency.</div>
+        <div class="aug-params">
+          <span class="aug-param">I' = I^γ</span>
+          <span class="aug-param">γ ∈ [0.4, 2.0]</span>
+          <span class="aug-param">per-channel option</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAUSSIAN NOISE + BLUR -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c2)"></div>
+        <div class="aug-card-title">Noise &amp; Blur</div>
+        <div class="aug-card-tag">Intensity</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-nb-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-nb-noise" width="100" height="100"></canvas><div class="canvas-label" id="lbl-nb-noise">G. Noise σ=15</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-nb-blur" width="100" height="100"></canvas><div class="canvas-label" id="lbl-nb-blur">Blur r=2</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-nb-both" width="100" height="100"></canvas><div class="canvas-label">Both</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawNoiseBlur()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">Additive Gaussian noise simulates sensor noise in low-light or low-dose imaging. Gaussian blur simulates defocus, thick tissue sections, or motion blur. Teaches the network to ignore high-frequency acquisition artifacts.</div>
+        <div class="aug-params">
+          <span class="aug-param">σ_noise ∈ [5, 30]</span>
+          <span class="aug-param">blur r ∈ [1, 4]</span>
+          <span class="aug-param">salt-and-pepper option</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAIN AUGMENTATION -->
+    <div class="aug-card">
+      <div class="aug-card-header">
+        <div class="aug-color-dot" style="background:var(--c5)"></div>
+        <div class="aug-card-title">Stain Color Jitter</div>
+        <div class="aug-card-tag">Intensity · Histology-specific</div>
+      </div>
+      <div class="aug-canvas-wrap">
+        <div class="canvas-block"><canvas class="aug" id="cv-st-orig" width="100" height="100"></canvas><div class="canvas-label">Original</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-st-a" width="100" height="100"></canvas><div class="canvas-label">Jitter A</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-st-b" width="100" height="100"></canvas><div class="canvas-label">Jitter B</div></div>
+        <div class="canvas-block"><canvas class="aug" id="cv-st-c" width="100" height="100"></canvas><div class="canvas-label">Jitter C</div></div>
+      </div>
+      <button class="btn-regen" onclick="drawStainJitter()">↺ Randomize</button>
+      <div class="aug-card-body">
+        <div class="aug-desc">H&amp;E staining intensity varies between labs, batches, and technicians. Stain augmentation (Macenko/Vahadane-based) perturbs the hematoxylin and eosin concentration channels independently in OD space, simulating inter-lab variation without losing structural content.</div>
+        <div class="aug-params">
+          <span class="aug-param">H channel ±30%</span>
+          <span class="aug-param">E channel ±30%</span>
+          <span class="aug-param">OD space jitter</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SECTION 5: PIPELINE ══ -->
+<section class="section" id="s-pipeline">
+  <div class="sec-header">
+    <div class="sec-num">05</div>
+    <div class="sec-title">Augmentation Pipeline</div>
+  </div>
+  <p class="sec-desc">Transforms are composed sequentially. The order matters — applying intensity transforms before spatial ones avoids interpolation artifacts. Each transform has an independent probability of being applied.</p>
+
+  <div class="pipeline-wrap">
+    <div class="pipeline-label">// Sequential Transform Chain — single training sample</div>
+    <div class="pipeline-row" id="pipelineRow">
+      <!-- filled by JS -->
+    </div>
+    <button class="btn-regen" style="margin:16px 0 0;width:auto;padding:9px 24px;" onclick="drawPipeline()">↺ New Sample</button>
+  </div>
+</section>
+
+<!-- ══ SECTION 6: IMPACT TABLE ══ -->
+<section class="section" id="s-impact">
+  <div class="sec-header">
+    <div class="sec-num">06</div>
+    <div class="sec-title">Impact by Transform Type</div>
+  </div>
+  <p class="sec-desc">Different transforms confer different invariances. Choosing the right augmentation strategy depends on the task — overly aggressive augmentation can corrupt label-sensitive structure.</p>
+
+  <div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+    <table class="impact-table">
+      <thead>
+        <tr>
+          <th>Transform</th>
+          <th>Invariance Learned</th>
+          <th>Relative Benefit</th>
+          <th>Risk Level</th>
+          <th>Common Use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Flip (H/V)</strong></td>
+          <td>Orientation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:90%;background:var(--c1)"></div></div></td>
+          <td><span class="badge" style="background:rgba(77,240,196,.15);color:var(--c1)">Low</span></td>
+          <td>Universal</td>
+        </tr>
+        <tr>
+          <td><strong>Rotation</strong></td>
+          <td>Rotational symmetry</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:88%;background:var(--c1)"></div></div></td>
+          <td><span class="badge" style="background:rgba(77,240,196,.15);color:var(--c1)">Low</span></td>
+          <td>Histology, satellite</td>
+        </tr>
+        <tr>
+          <td><strong>Scaling</strong></td>
+          <td>Scale / magnification</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:78%;background:var(--c4)"></div></div></td>
+          <td><span class="badge" style="background:rgba(251,191,36,.15);color:var(--c4)">Medium</span></td>
+          <td>Most vision tasks</td>
+        </tr>
+        <tr>
+          <td><strong>Shearing</strong></td>
+          <td>Oblique angles</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:60%;background:var(--c4)"></div></div></td>
+          <td><span class="badge" style="background:rgba(251,191,36,.15);color:var(--c4)">Medium</span></td>
+          <td>Histology, OCR</td>
+        </tr>
+        <tr>
+          <td><strong>Elastic Deform.</strong></td>
+          <td>Tissue deformation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:85%;background:var(--c3)"></div></div></td>
+          <td><span class="badge" style="background:rgba(251,191,36,.15);color:var(--c4)">Medium</span></td>
+          <td>Medical segmentation</td>
+        </tr>
+        <tr>
+          <td><strong>Brightness/Contrast</strong></td>
+          <td>Exposure variation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:72%;background:var(--c4)"></div></div></td>
+          <td><span class="badge" style="background:rgba(77,240,196,.15);color:var(--c1)">Low</span></td>
+          <td>Universal</td>
+        </tr>
+        <tr>
+          <td><strong>Gamma</strong></td>
+          <td>Tone curve variation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:65%;background:var(--c4)"></div></div></td>
+          <td><span class="badge" style="background:rgba(77,240,196,.15);color:var(--c1)">Low</span></td>
+          <td>Medical imaging</td>
+        </tr>
+        <tr>
+          <td><strong>Gaussian Noise</strong></td>
+          <td>Sensor noise</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--c4)"></div></div></td>
+          <td><span class="badge" style="background:rgba(77,240,196,.15);color:var(--c1)">Low</span></td>
+          <td>Low-dose CT, MRI</td>
+        </tr>
+        <tr>
+          <td><strong>Stain Jitter</strong></td>
+          <td>Lab-to-lab variation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:92%;background:var(--c5)"></div></div></td>
+          <td><span class="badge" style="background:rgba(251,191,36,.15);color:var(--c4)">Medium</span></td>
+          <td>H&amp;E pathology</td>
+        </tr>
+        <tr>
+          <td><strong>Elastic (strong)</strong></td>
+          <td>Gross deformation</td>
+          <td class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:45%;background:var(--c2)"></div></div></td>
+          <td><span class="badge" style="background:rgba(255,140,90,.15);color:var(--c2)">High</span></td>
+          <td>Use with caution</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>UIUC · BIOE 486 · Deep Learning Visuals · Generated with Claude · GitHub Pages</footer>
+
+<script>
+/* ════════════════════════════════
+   SHARED UTILITIES
+════════════════════════════════ */
+const DPR = window.devicePixelRatio || 1;
+
+function rng(min, max) { return min + Math.random() * (max - min); }
+function rngInt(min, max) { return Math.floor(rng(min, max + 1)); }
+
+/* Generate a simple synthetic "cell patch" image as ImageData */
+function makePatch(size = 100, seed = 42) {
+  const data = new Uint8ClampedArray(size * size * 4);
+  let s = seed;
+  const sr = () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+
+  // Background: pinkish-beige (H&E style)
+  for (let i = 0; i < size * size; i++) {
+    data[i*4]   = 235 + sr()*15;
+    data[i*4+1] = 205 + sr()*20;
+    data[i*4+2] = 200 + sr()*20;
+    data[i*4+3] = 255;
+  }
+
+  // Cells
+  const cells = [];
+  const nc = 7 + (seed % 5);
+  for (let c = 0; c < nc; c++) {
+    cells.push({
+      x: 10 + sr() * (size - 20),
+      y: 10 + sr() * (size - 20),
+      r: 8 + sr() * 10,
+      nr: 4 + sr() * 4,
+      type: sr() > 0.3 ? 'epi' : 'str'
+    });
+  }
+
+  cells.forEach(cell => {
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - cell.x, dy = y - cell.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        const idx = (y * size + x) * 4;
+        if (d < cell.r) {
+          const t = 1 - d / cell.r;
+          if (cell.type === 'epi') {
+            data[idx]   = Math.round(data[idx]   * (1-t*0.15) + 230*t*0.15);
+            data[idx+1] = Math.round(data[idx+1] * (1-t*0.4) + 140*t*0.4);
+            data[idx+2] = Math.round(data[idx+2] * (1-t*0.5) + 170*t*0.5);
+          } else {
+            data[idx]   = Math.round(data[idx]   * (1-t*0.2) + 240*t*0.2);
+            data[idx+1] = Math.round(data[idx+1] * (1-t*0.3) + 180*t*0.3);
+            data[idx+2] = Math.round(data[idx+2] * (1-t*0.25) + 175*t*0.25);
+          }
+        }
+        if (d < cell.nr) {
+          const t = 1 - d / cell.nr;
+          data[idx]   = Math.round(data[idx]   * (1-t) + 55*t);
+          data[idx+1] = Math.round(data[idx+1] * (1-t) + 20*t);
+          data[idx+2] = Math.round(data[idx+2] * (1-t) + 130*t);
+        }
+      }
+    }
+  });
+
+  return new ImageData(data, size, size);
+}
+
+function getPixels(img) {
+  return new Uint8ClampedArray(img.data);
+}
+
+function putImage(canvas, imgData) {
+  canvas.width = imgData.width;
+  canvas.height = imgData.height;
+  canvas.getContext('2d').putImageData(imgData, 0, 0);
+}
+
+/* Apply an affine transform to ImageData */
+function affineTransform(src, matrix, size) {
+  const w = size, h = size;
+  const out = new Uint8ClampedArray(w * h * 4);
+  const srcD = src.data;
+  const cx = w / 2, cy = h / 2;
+
+  // matrix: [a, b, c, d, tx, ty] — inverse mapping
+  const [a, b, c, d, tx, ty] = matrix;
+  const det = a * d - b * c;
+  const ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const nx = x - cx - tx, ny = y - cy - ty;
+      const sx = ia * nx + ib * ny + cx;
+      const sy = ic * nx + id * ny + cy;
+      const xi = Math.round(sx), yi = Math.round(sy);
+      const oi = (y * w + x) * 4;
+      if (xi >= 0 && xi < w && yi >= 0 && yi < h) {
+        const si = (yi * w + xi) * 4;
+        out[oi] = srcD[si]; out[oi+1] = srcD[si+1];
+        out[oi+2] = srcD[si+2]; out[oi+3] = 255;
+      } else {
+        out[oi] = 235; out[oi+1] = 220; out[oi+2] = 215; out[oi+3] = 255;
+      }
+    }
+  }
+  return new ImageData(out, w, h);
+}
+
+function rotate(src, angle, size) {
+  const rad = angle * Math.PI / 180;
+  const cos = Math.cos(rad), sin = Math.sin(rad);
+  return affineTransform(src, [cos, -sin, sin, cos, 0, 0], size);
+}
+
+function scale(src, sx, sy, size) {
+  return affineTransform(src, [sx, 0, 0, sy, 0, 0], size);
+}
+
+function shear(src, kx, ky, size) {
+  return affineTransform(src, [1, kx, ky, 1, 0, 0], size);
+}
+
+function translate(src, tx, ty, size) {
+  return affineTransform(src, [1, 0, 0, 1, tx, ty], size);
+}
+
+function flipH(src, size) {
+  const out = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const oi = (y * size + x) * 4;
+      const si = (y * size + (size - 1 - x)) * 4;
+      out[oi]=src.data[si]; out[oi+1]=src.data[si+1]; out[oi+2]=src.data[si+2]; out[oi+3]=255;
+    }
+  return new ImageData(out, size, size);
+}
+
+function flipV(src, size) {
+  const out = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const oi = (y * size + x) * 4;
+      const si = ((size - 1 - y) * size + x) * 4;
+      out[oi]=src.data[si]; out[oi+1]=src.data[si+1]; out[oi+2]=src.data[si+2]; out[oi+3]=255;
+    }
+  return new ImageData(out, size, size);
+}
+
+function adjustBrightCont(src, alpha, beta, size) {
+  const out = new Uint8ClampedArray(src.data.length);
+  for (let i = 0; i < src.data.length; i += 4) {
+    out[i]   = Math.min(255, Math.max(0, src.data[i]   * alpha + beta));
+    out[i+1] = Math.min(255, Math.max(0, src.data[i+1] * alpha + beta));
+    out[i+2] = Math.min(255, Math.max(0, src.data[i+2] * alpha + beta));
+    out[i+3] = 255;
+  }
+  return new ImageData(out, size, size);
+}
+
+function applyGamma(src, gamma, size) {
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) lut[i] = Math.min(255, Math.round(Math.pow(i / 255, gamma) * 255));
+  const out = new Uint8ClampedArray(src.data.length);
+  for (let i = 0; i < src.data.length; i += 4) {
+    out[i]=lut[src.data[i]]; out[i+1]=lut[src.data[i+1]]; out[i+2]=lut[src.data[i+2]]; out[i+3]=255;
+  }
+  return new ImageData(out, size, size);
+}
+
+function addGaussianNoise(src, sigma, size) {
+  const out = new Uint8ClampedArray(src.data.length);
+  for (let i = 0; i < src.data.length; i += 4) {
+    const n = () => { let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)*sigma; };
+    out[i]   = Math.min(255, Math.max(0, src.data[i]   + n()));
+    out[i+1] = Math.min(255, Math.max(0, src.data[i+1] + n()));
+    out[i+2] = Math.min(255, Math.max(0, src.data[i+2] + n()));
+    out[i+3] = 255;
+  }
+  return new ImageData(out, size, size);
+}
+
+function boxBlur(src, r, size) {
+  const out = new Uint8ClampedArray(src.data.length);
+  const k = 2 * r + 1;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let rr=0,gg=0,bb=0,cnt=0;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        const nx = Math.min(size-1,Math.max(0,x+dx));
+        const ny = Math.min(size-1,Math.max(0,y+dy));
+        const si = (ny*size+nx)*4;
+        rr+=src.data[si]; gg+=src.data[si+1]; bb+=src.data[si+2]; cnt++;
+      }
+      const oi=(y*size+x)*4;
+      out[oi]=rr/cnt; out[oi+1]=gg/cnt; out[oi+2]=bb/cnt; out[oi+3]=255;
+    }
+  }
+  return new ImageData(out, size, size);
+}
+
+function stainJitter(src, dh, de, size) {
+  const out = new Uint8ClampedArray(src.data.length);
+  for (let i = 0; i < src.data.length; i += 4) {
+    let r = src.data[i]/255, g = src.data[i+1]/255, b = src.data[i+2]/255;
+    r = Math.max(1e-6, r); g = Math.max(1e-6, g); b = Math.max(1e-6, b);
+    // approximate OD
+    let od_r = -Math.log(r), od_g = -Math.log(g), od_b = -Math.log(b);
+    // hematoxylin-like channel: boost blue-purple
+    od_r *= (1 + dh * 0.4); od_g *= (1 + dh * 0.1); od_b *= (1 + dh * (-0.3));
+    // eosin-like channel: boost red-pink
+    od_r *= (1 + de * (-0.2)); od_g *= (1 + de * 0.3); od_b *= (1 + de * 0.5);
+    out[i]   = Math.min(255, Math.max(0, Math.round(Math.exp(-od_r) * 255)));
+    out[i+1] = Math.min(255, Math.max(0, Math.round(Math.exp(-od_g) * 255)));
+    out[i+2] = Math.min(255, Math.max(0, Math.round(Math.exp(-od_b) * 255)));
+    out[i+3] = 255;
+  }
+  return new ImageData(out, size, size);
+}
+
+/* Elastic deformation */
+function elasticDeform(src, alpha, sigma, size) {
+  // Generate smooth displacement field
+  const raw = new Float32Array(size * size);
+  for (let i = 0; i < raw.length; i++) raw[i] = (Math.random() * 2 - 1);
+  // Gaussian smooth
+  function gaussSmooth(field, s) {
+    const radius = Math.ceil(s * 2);
+    const tmp = new Float32Array(field.length);
+    const out2 = new Float32Array(field.length);
+    // horizontal
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      let sum = 0, w = 0;
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = Math.min(size-1, Math.max(0, x+dx));
+        const g = Math.exp(-dx*dx/(2*s*s));
+        sum += field[y*size+nx]*g; w+=g;
+      }
+      tmp[y*size+x]=sum/w;
+    }
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      let sum = 0, w = 0;
+      for (let dy = -radius; dy <= radius; dy++) {
+        const ny = Math.min(size-1, Math.max(0, y+dy));
+        const g = Math.exp(-dy*dy/(2*s*s));
+        sum += tmp[ny*size+x]*g; w+=g;
+      }
+      out2[y*size+x]=sum/w;
+    }
+    return out2;
+  }
+  const raw2 = new Float32Array(size * size);
+  for (let i = 0; i < raw2.length; i++) raw2[i] = (Math.random() * 2 - 1);
+  const dx = gaussSmooth(raw, sigma);
+  const dy = gaussSmooth(raw2, sigma);
+
+  const out = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const sx = Math.round(x + dx[y*size+x] * alpha);
+    const sy = Math.round(y + dy[y*size+x] * alpha);
+    const oi = (y*size+x)*4;
+    if (sx>=0&&sx<size&&sy>=0&&sy<size) {
+      const si=(sy*size+sx)*4;
+      out[oi]=src.data[si]; out[oi+1]=src.data[si+1]; out[oi+2]=src.data[si+2]; out[oi+3]=255;
+    } else { out[oi]=235;out[oi+1]=215;out[oi+2]=210;out[oi+3]=255; }
+  }
+  return new ImageData(out, size, size);
+}
+
+/* Grid distortion */
+function gridDistort(src, gridN, limit, size) {
+  const pts = [];
+  for (let gy = 0; gy <= gridN; gy++) for (let gx = 0; gx <= gridN; gx++) {
+    pts.push({
+      sx: gx * size / gridN,
+      sy: gy * size / gridN,
+      dx: (gx === 0 || gx === gridN) ? 0 : (Math.random()*2-1)*limit*(size/gridN),
+      dy: (gy === 0 || gy === gridN) ? 0 : (Math.random()*2-1)*limit*(size/gridN)
+    });
+  }
+  const out = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    // find grid cell
+    const gx = Math.floor(x * gridN / size);
+    const gy = Math.floor(y * gridN / size);
+    const tx = (x * gridN / size) - gx;
+    const ty = (y * gridN / size) - gy;
+    const idx = (r, c) => r * (gridN + 1) + c;
+    const p00 = pts[idx(gy,gx)], p10 = pts[idx(gy+1,gx)];
+    const p01 = pts[idx(gy,gx+1)], p11 = pts[idx(gy+1,gx+1)];
+    const ddx = p00.dx*(1-tx)*(1-ty)+p01.dx*tx*(1-ty)+p10.dx*(1-tx)*ty+p11.dx*tx*ty;
+    const ddy = p00.dy*(1-tx)*(1-ty)+p01.dy*tx*(1-ty)+p10.dy*(1-tx)*ty+p11.dy*tx*ty;
+    const sx = Math.min(size-1,Math.max(0,Math.round(x+ddx)));
+    const sy = Math.min(size-1,Math.max(0,Math.round(y+ddy)));
+    const oi=(y*size+x)*4, si=(sy*size+sx)*4;
+    out[oi]=src.data[si]; out[oi+1]=src.data[si+1]; out[oi+2]=src.data[si+2]; out[oi+3]=255;
+  }
+  return new ImageData(out, size, size);
+}
+
+/* ════════════════════════════════
+   DRAW FUNCTIONS
+════════════════════════════════ */
+let patchSeed = 99;
+
+function freshPatch(size) {
+  patchSeed = rngInt(10, 9999);
+  return makePatch(size, patchSeed);
+}
+
+function drawRotation() {
+  const sz = 100, src = freshPatch(sz);
+  const a1 = rngInt(20, 45), a2 = rngInt(80, 100), a3 = 180;
+  putImage(document.getElementById('cv-rot-orig'), src);
+  putImage(document.getElementById('cv-rot-30'), rotate(src, a1, sz));
+  putImage(document.getElementById('cv-rot-90'), rotate(src, a2, sz));
+  putImage(document.getElementById('cv-rot-180'), rotate(src, a3, sz));
+  document.getElementById('lbl-rot-30').textContent = `+${a1}°`;
+  document.getElementById('lbl-rot-90').textContent = `+${a2}°`;
+  document.getElementById('lbl-rot-180').textContent = `+${a3}°`;
+}
+
+function drawScaling() {
+  const sz = 100, src = freshPatch(sz);
+  const s1 = +(rng(1.25, 1.5)).toFixed(2);
+  const s2 = +(rng(0.6, 0.8)).toFixed(2);
+  const ax = +(rng(1.1, 1.4)).toFixed(2), ay = +(rng(0.7, 0.9)).toFixed(2);
+  putImage(document.getElementById('cv-sc-orig'), src);
+  putImage(document.getElementById('cv-sc-zoom'), scale(src, s1, s1, sz));
+  putImage(document.getElementById('cv-sc-shrink'), scale(src, s2, s2, sz));
+  putImage(document.getElementById('cv-sc-aniso'), scale(src, ax, ay, sz));
+  document.getElementById('lbl-sc-zoom').textContent = `×${s1}`;
+  document.getElementById('lbl-sc-shrink').textContent = `×${s2}`;
+  document.getElementById('lbl-sc-aniso').textContent = `×${ax}/×${ay}`;
+}
+
+function drawShearing() {
+  const sz = 100, src = freshPatch(sz);
+  const kx = +(rng(0.2, 0.4)).toFixed(2);
+  const ky = +(rng(0.2, 0.4)).toFixed(2);
+  putImage(document.getElementById('cv-sh-orig'), src);
+  putImage(document.getElementById('cv-sh-x'), shear(src, kx, 0, sz));
+  putImage(document.getElementById('cv-sh-y'), shear(src, 0, ky, sz));
+  putImage(document.getElementById('cv-sh-xy'), shear(src, kx*0.6, ky*0.6, sz));
+  document.getElementById('lbl-sh-x').textContent = `kx=${kx}`;
+  document.getElementById('lbl-sh-y').textContent = `ky=${ky}`;
+  document.getElementById('lbl-sh-xy').textContent = `kxy`;
+}
+
+function drawFlip() {
+  const sz = 100, src = freshPatch(sz);
+  const tx = rngInt(-15, 15), ty = rngInt(-15, 15);
+  putImage(document.getElementById('cv-fl-orig'), src);
+  putImage(document.getElementById('cv-fl-h'), flipH(src, sz));
+  putImage(document.getElementById('cv-fl-v'), flipV(src, sz));
+  putImage(document.getElementById('cv-fl-tx'), translate(src, tx, ty, sz));
+  document.getElementById('lbl-fl-tx').textContent = `tx=${tx},ty=${ty}`;
+}
+
+function drawElastic() {
+  const sz = 120, src = freshPatch(sz);
+  const a1 = rngInt(20, 40), s1 = rngInt(5, 8);
+  const a2 = rngInt(65, 95), s2 = rngInt(7, 12);
+  putImage(document.getElementById('cv-el-orig'), src);
+  putImage(document.getElementById('cv-el-mild'), elasticDeform(src, a1, s1, sz));
+  putImage(document.getElementById('cv-el-strong'), elasticDeform(src, a2, s2, sz));
+  document.getElementById('lbl-el-mild').textContent = `Mild (α=${a1})`;
+  document.getElementById('lbl-el-strong').textContent = `Strong (α=${a2})`;
+}
+
+function drawGridSpline() {
+  const sz = 120, src = freshPatch(sz);
+  putImage(document.getElementById('cv-gs-orig'), src);
+  putImage(document.getElementById('cv-gs-grid'), gridDistort(src, 5, 0.25, sz));
+  putImage(document.getElementById('cv-gs-bsp'), gridDistort(src, 4, 0.18, sz));
+}
+
+function drawBrightnessContrast() {
+  const sz = 100, src = freshPatch(sz);
+  const b = rngInt(30, 55), d = rngInt(-55, -30), ca = +(rng(1.35, 1.6)).toFixed(2);
+  putImage(document.getElementById('cv-bc-orig'), src);
+  putImage(document.getElementById('cv-bc-bright'), adjustBrightCont(src, 1, b, sz));
+  putImage(document.getElementById('cv-bc-dark'), adjustBrightCont(src, 1, d, sz));
+  putImage(document.getElementById('cv-bc-cont'), adjustBrightCont(src, ca, -20, sz));
+  document.getElementById('lbl-bc-bright').textContent = `+${b} bright`;
+  document.getElementById('lbl-bc-dark').textContent = `${d} bright`;
+  document.getElementById('lbl-bc-cont').textContent = `α=${ca}`;
+}
+
+function drawGamma() {
+  const sz = 100, src = freshPatch(sz);
+  const glo = +(rng(0.4, 0.65)).toFixed(2);
+  const ghi = +(rng(1.6, 2.0)).toFixed(2);
+  putImage(document.getElementById('cv-gm-orig'), src);
+  putImage(document.getElementById('cv-gm-low'), applyGamma(src, glo, sz));
+  putImage(document.getElementById('cv-gm-hi'), applyGamma(src, ghi, sz));
+  // Draw gamma curve on 4th canvas
+  const cv = document.getElementById('cv-gm-curve');
+  cv.width = 100; cv.height = 100;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0f1118'; ctx.fillRect(0,0,100,100);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth=0.5;
+  ctx.beginPath(); ctx.moveTo(0,100); ctx.lineTo(100,0); ctx.stroke();
+  [[glo,'#4df0c4'],[1.0,'rgba(255,255,255,0.3)'],[ghi,'#ff8c5a']].forEach(([g,col])=>{
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.8;
+    for(let x=0;x<=100;x++){
+      const y = 100 - Math.pow(x/100, g)*100;
+      x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  });
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.font='7px DM Mono,monospace';
+  ctx.fillText(`γ=${glo}`, 4, 90); ctx.fillText(`γ=${ghi}`, 4, 78);
+  document.getElementById('lbl-gm-low').textContent = `γ=${glo}`;
+  document.getElementById('lbl-gm-hi').textContent = `γ=${ghi}`;
+}
+
+function drawNoiseBlur() {
+  const sz = 100, src = freshPatch(sz);
+  const ns = rngInt(12, 22), br = rngInt(2, 3);
+  putImage(document.getElementById('cv-nb-orig'), src);
+  putImage(document.getElementById('cv-nb-noise'), addGaussianNoise(src, ns, sz));
+  putImage(document.getElementById('cv-nb-blur'), boxBlur(src, br, sz));
+  putImage(document.getElementById('cv-nb-both'), boxBlur(addGaussianNoise(src, ns*0.8, sz), br, sz));
+  document.getElementById('lbl-nb-noise').textContent = `Noise σ=${ns}`;
+  document.getElementById('lbl-nb-blur').textContent = `Blur r=${br}`;
+}
+
+function drawStainJitter() {
+  const sz = 100, src = freshPatch(sz);
+  putImage(document.getElementById('cv-st-orig'), src);
+  putImage(document.getElementById('cv-st-a'), stainJitter(src, rng(0.2,0.5), rng(-0.3,0.0), sz));
+  putImage(document.getElementById('cv-st-b'), stainJitter(src, rng(-0.4,-0.1), rng(0.2,0.5), sz));
+  putImage(document.getElementById('cv-st-c'), stainJitter(src, rng(0.1,0.4), rng(0.1,0.4), sz));
+}
+
+/* ── Overfitting canvas ── */
+function drawOverfit() {
+  const cv = document.getElementById('overfitCanvas');
+  cv.width = 280; cv.height = 120;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0f1118'; ctx.fillRect(0,0,280,120);
+  const pad = {l:30,r:10,t:10,b:28};
+  const cw = 280-pad.l-pad.r, ch = 120-pad.t-pad.b;
+  // axes
+  ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ch); ctx.lineTo(pad.l+cw,pad.t+ch); ctx.stroke();
+  // train acc
+  const trainPts = [], valPts = [];
+  for(let i=0;i<=30;i++){
+    const t = i/30;
+    trainPts.push({x:pad.l+t*cw, y:pad.t+ch-(0.5+0.49*(1-Math.exp(-t*6)))*ch});
+    const vAcc = 0.5+0.3*(1-Math.exp(-t*5)) - (t>0.4 ? (t-0.4)*0.4 : 0);
+    valPts.push({x:pad.l+t*cw, y:pad.t+ch-Math.min(0.95,Math.max(0.3,vAcc))*ch});
+  }
+  const drawLine = (pts, col) => {
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.5;
+    pts.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+  };
+  drawLine(trainPts, 'var(--c1, #4df0c4)'); drawLine(valPts, 'var(--c2, #ff8c5a)');
+  ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='7px DM Mono,monospace';
+  ctx.fillText('Train acc', pad.l+4, pad.t+12);
+  ctx.fillStyle='rgba(255,140,90,0.8)';
+  ctx.fillText('Val acc', pad.l+4, pad.t+22);
+  ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.textAlign='center';
+  ctx.fillText('Epochs →', pad.l+cw/2, pad.t+ch+18);
+}
+
+/* ── Generalization curve (with/without aug) ── */
+function drawGenCurve() {
+  const cv = document.getElementById('genCurveCanvas');
+  const W = cv.offsetWidth || 600, H = 200;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0f1118'; ctx.fillRect(0,0,W,H);
+  const pad = {l:44,r:20,t:16,b:36};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  [0,.25,.5,.75,1].forEach(t=>{
+    ctx.beginPath(); ctx.moveTo(pad.l,pad.t+t*ch); ctx.lineTo(pad.l+cw,pad.t+t*ch); ctx.stroke();
+  });
+  ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ch); ctx.lineTo(pad.l+cw,pad.t+ch); ctx.stroke();
+
+  const N = 50;
+  // NO AUG: train overfit, val drops
+  const noAugTrain = [], noAugVal = [];
+  for(let i=0;i<=N;i++){
+    const t=i/N;
+    noAugTrain.push(0.52+0.46*(1-Math.exp(-t*8)));
+    const v = 0.52+0.26*(1-Math.exp(-t*5))-(t>0.35?(t-0.35)*0.35:0);
+    noAugVal.push(Math.min(0.98,Math.max(0.4,v)));
+  }
+  // WITH AUG: both converge higher
+  const augTrain = [], augVal = [];
+  for(let i=0;i<=N;i++){
+    const t=i/N;
+    augTrain.push(0.52+0.42*(1-Math.exp(-t*6)));
+    augVal.push(0.52+0.38*(1-Math.exp(-t*5.5))+(t>0.5?0:0));
+  }
+
+  function plotLine(data, col, dash=[]) {
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.setLineDash(dash);
+    data.forEach((v,i)=>{
+      const x=pad.l+(i/N)*cw, y=pad.t+ch-(v*ch);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  plotLine(noAugTrain, 'rgba(255,100,80,0.5)', [4,3]);
+  plotLine(noAugVal, 'rgba(255,100,80,0.9)');
+  plotLine(augTrain, 'rgba(77,240,196,0.5)', [4,3]);
+  plotLine(augVal, 'rgba(77,240,196,1)');
+
+  // y-axis
+  ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='8px DM Mono,monospace'; ctx.textAlign='right';
+  [1,.75,.5,.25,0].forEach((v,i)=>ctx.fillText((v*100).toFixed(0)+'%', pad.l-6, pad.t+i*(ch/4)+3));
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.font='8px DM Mono,monospace';
+  [0,.25,.5,.75,1].forEach(t=>ctx.fillText(Math.round(t*N), pad.l+t*cw, pad.t+ch+14));
+  ctx.fillText('Epoch', pad.l+cw/2, H-4);
+
+  // legend
+  const ld = [[pad.l+10,'rgba(255,100,80,0.9)','No Aug — Val'],[pad.l+10+120,'rgba(77,240,196,1)','With Aug — Val']];
+  ld.forEach(([x,c,lbl])=>{
+    ctx.beginPath(); ctx.strokeStyle=c; ctx.lineWidth=2; ctx.moveTo(x,12); ctx.lineTo(x+18,12); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.textAlign='left'; ctx.font='8px DM Mono,monospace';
+    ctx.fillText(lbl, x+22, 15);
+  });
+
+  // Gap annotation
+  const gapX = pad.l + 0.72*cw;
+  const y1 = pad.t+ch-(noAugVal[36]*ch), y2 = pad.t+ch-(augVal[36]*ch);
+  ctx.beginPath(); ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1; ctx.setLineDash([2,2]);
+  ctx.moveTo(gapX, y1); ctx.lineTo(gapX, y2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.textAlign='left'; ctx.font='7px DM Mono,monospace';
+  ctx.fillText('gap ↕', gapX+4, (y1+y2)/2+3);
+}
+
+/* ── Pipeline ── */
+function drawPipeline() {
+  const sz = 72;
+  const src = freshPatch(sz);
+  const steps = [
+    { label: 'Original', img: src },
+  ];
+  // pick 4 random transforms
+  const allT = [
+    () => { const a=rngInt(15,355); return {label:`rot ${a}°`, img: rotate(src,a,sz)}; },
+    () => { const s=+(rng(0.8,1.3)).toFixed(2); return {label:`scale ×${s}`, img: scale(src,s,s,sz)}; },
+    () => { const k=+(rng(0.1,0.3)).toFixed(2); return {label:`shear ${k}`, img: shear(src,k,0,sz)}; },
+    () => { return {label:'flip H', img: flipH(src,sz)}; },
+    () => { const a=rngInt(20,50),s=rngInt(5,9); return {label:`elastic`, img: elasticDeform(src,a,s,sz)}; },
+    () => { const b=rngInt(20,45); return {label:`+bright`, img: adjustBrightCont(src,1,b,sz)}; },
+    () => { const g=+(rng(0.5,1.8)).toFixed(2); return {label:`γ=${g}`, img: applyGamma(src,g,sz)}; },
+    () => { const n=rngInt(8,20); return {label:`noise σ=${n}`, img: addGaussianNoise(src,n,sz)}; },
+    () => { return {label:'stain jitter', img: stainJitter(src,rng(-0.3,0.3),rng(-0.3,0.3),sz)}; },
+  ];
+  // shuffle and pick 4
+  const shuffled = allT.sort(()=>Math.random()-.5).slice(0,4);
+  shuffled.forEach(fn => steps.push(fn()));
+
+  const row = document.getElementById('pipelineRow');
+  row.innerHTML = '';
+  steps.forEach((step, i) => {
+    if (i > 0) {
+      const arrow = document.createElement('div');
+      arrow.className = 'pipeline-arrow';
+      arrow.textContent = '→';
+      row.appendChild(arrow);
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'pipeline-step';
+    const cv = document.createElement('canvas');
+    cv.width = sz; cv.height = sz;
+    cv.style.cssText = `width:${sz}px;height:${sz}px;border-radius:4px;display:block;`;
+    cv.getContext('2d').putImageData(step.img, 0, 0);
+    const lbl = document.createElement('div');
+    lbl.className = 'pipeline-step-label';
+    lbl.textContent = step.label;
+    wrap.appendChild(cv); wrap.appendChild(lbl);
+    row.appendChild(wrap);
+  });
+}
+
+/* ════════════ INIT ════════════ */
+window.addEventListener('load', () => {
+  drawRotation();
+  drawScaling();
+  drawShearing();
+  drawFlip();
+  drawElastic();
+  drawGridSpline();
+  drawBrightnessContrast();
+  drawGamma();
+  drawNoiseBlur();
+  drawStainJitter();
+  drawOverfit();
+  drawGenCurve();
+  drawPipeline();
+});
+window.addEventListener('resize', () => {
+  drawGenCurve();
+});
+</script>
+</body>
+</html>
