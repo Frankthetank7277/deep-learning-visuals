@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Virtual Staining · Deep Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #06080f;
+    --surface: #0d1220;
+    --border: #1e2a40;
+    --accent1: #00e5c8;
+    --accent2: #ff6b6b;
+    --accent3: #a78bfa;
+    --accent4: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --histo-unstained: #f5e6d0;
+    --histo-nucleus: #3d1a8e;
+    --histo-cytoplasm: #e07bbd;
+    --histo-eosin: #e8667a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 60px 48px 40px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 60% -10%, rgba(0,229,200,.08) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 40% at 10% 120%, rgba(167,139,250,.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .header-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .25em;
+    color: var(--accent1);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.2rem, 5vw, 4rem);
+    line-height: 1.1;
+    color: #fff;
+  }
+  h1 em { color: var(--accent1); font-style: italic; }
+  .header-sub {
+    margin-top: 14px;
+    font-size: .95rem;
+    color: var(--muted);
+    max-width: 600px;
+  }
+  .nav-pills {
+    display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap;
+  }
+  .pill {
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    cursor: pointer;
+    transition: all .2s;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: transparent;
+  }
+  .pill.active, .pill:hover { border-color: var(--accent1); color: var(--accent1); background: rgba(0,229,200,.07); }
+
+  /* ── SECTIONS ── */
+  main { padding: 0 48px 80px; }
+  section { margin-top: 72px; }
+  .section-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .3em;
+    color: var(--accent3);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  .section-desc {
+    font-size: .88rem;
+    color: var(--muted);
+    max-width: 700px;
+    margin-bottom: 36px;
+  }
+
+  /* ── HISTOLOGY PANEL ── */
+  .histo-grid {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr;
+    gap: 0;
+    align-items: center;
+  }
+  .histo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .histo-card-label {
+    padding: 12px 18px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  canvas.histo { display: block; width: 100%; }
+  .arrow-zone {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .arrow-label { font-size: 8px; font-family: 'Space Mono', monospace; color: var(--accent1); text-align: center; letter-spacing: .1em; }
+  .arrow-svg { animation: pulse-arrow 2s ease-in-out infinite; }
+  @keyframes pulse-arrow { 0%,100%{opacity:.5;transform:scaleX(1)} 50%{opacity:1;transform:scaleX(1.1)} }
+
+  .histo-legend {
+    display: flex; gap: 20px; flex-wrap: wrap; margin-top: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: var(--muted); }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* applications row */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .app-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s, transform .2s;
+  }
+  .app-card:hover { border-color: var(--accent3); transform: translateY(-2px); }
+  .app-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .app-card.c1::before { background: linear-gradient(90deg, var(--accent1), transparent); }
+  .app-card.c2::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .app-card.c3::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .app-card.c4::before { background: linear-gradient(90deg, var(--accent4), transparent); }
+  .app-icon { font-size: 1.6rem; margin-bottom: 10px; }
+  .app-title { font-size: .85rem; font-weight: 500; color: #fff; margin-bottom: 6px; }
+  .app-body { font-size: .78rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── NETWORK ── */
+  .network-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    overflow: hidden;
+  }
+  canvas#netCanvas { display: block; width: 100%; }
+
+  .arch-legend {
+    display: flex; gap: 24px; flex-wrap: wrap; margin-top: 20px;
+  }
+  .arch-item {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: .08em; color: var(--muted);
+  }
+  .arch-swatch { width: 16px; height: 10px; border-radius: 2px; }
+
+  /* ── LM DEMO ── */
+  .lm-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media(max-width:768px){ .lm-layout { grid-template-columns: 1fr; } .histo-grid { grid-template-columns: 1fr; } }
+
+  .lm-controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .lm-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .2em; color: var(--accent4); margin-bottom: 16px; }
+  .control-row { margin-bottom: 16px; }
+  .control-label { font-size: .78rem; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .control-label span { color: var(--accent4); font-family: 'Space Mono', monospace; }
+  input[type=range] {
+    width: 100%; accent-color: var(--accent4);
+    height: 4px; cursor: pointer;
+  }
+  .btn-run {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--accent4);
+    border-radius: 8px;
+    color: var(--accent4);
+    font-family: 'Space Mono', monospace;
+    font-size: .8rem;
+    letter-spacing: .1em;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background .2s;
+  }
+  .btn-run:hover { background: rgba(251,191,36,.1); }
+  .btn-run:disabled { opacity: .4; cursor: not-allowed; }
+  .lm-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px;
+  }
+  .stat-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .stat-label { font-size: .7rem; color: var(--muted); }
+  .stat-val { font-family: 'Space Mono', monospace; font-size: 1rem; color: #fff; margin-top: 4px; }
+
+  .lm-chart {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex; flex-direction: column;
+  }
+  .chart-title { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .2em; color: var(--accent4); margin-bottom: 16px; }
+  canvas#lmCanvas { flex: 1; }
+
+  /* equation */
+  .eq-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent4);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 20px 0 0;
+    font-family: 'Space Mono', monospace;
+    font-size: .78rem;
+    color: var(--text);
+    line-height: 2;
+  }
+  .eq-block em { color: var(--accent4); font-style: normal; }
+  .eq-block small { color: var(--muted); font-size: .68rem; }
+
+  /* tooltip */
+  .tooltip-note {
+    font-size: .75rem; color: var(--muted); margin-top: 10px; font-style: italic;
+  }
+
+  /* ── TABS ── */
+  .tab-bar {
+    display: flex; gap: 0; margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    padding: 10px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    margin-bottom: -1px;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn.active { color: var(--accent4); border-bottom-color: var(--accent4); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── NOTES PAGE ── */
+  .notes-page {
+    column-count: 2;
+    column-gap: 28px;
+  }
+  @media(max-width: 900px){ .notes-page { column-count: 1; } }
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    break-inside: avoid;
+    position: relative;
+    overflow: hidden;
+  }
+  .note-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .note-card.nc1::before { background: linear-gradient(90deg, var(--accent1), transparent); }
+  .note-card.nc2::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .note-card.nc3::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+  .note-card.nc4::before { background: linear-gradient(90deg, var(--accent4), transparent); }
+  .note-card.nc5::before { background: linear-gradient(90deg, #34d399, transparent); }
+  .note-heading {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .nc1 .note-heading { color: var(--accent1); }
+  .nc2 .note-heading { color: var(--accent2); }
+  .nc3 .note-heading { color: var(--accent3); }
+  .nc4 .note-heading { color: var(--accent4); }
+  .nc5 .note-heading { color: #34d399; }
+  .note-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.05rem;
+    color: #fff;
+    margin-bottom: 10px;
+    line-height: 1.25;
+  }
+  .note-body {
+    font-size: .8rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .note-body p { margin-bottom: 8px; }
+  .note-body p:last-child { margin-bottom: 0; }
+  .note-kv {
+    margin-top: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .kv-row {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: .78rem;
+  }
+  .kv-key {
+    font-family: 'Space Mono', monospace;
+    font-size: .72rem;
+    color: #fff;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+  .kv-val { color: var(--muted); line-height: 1.5; }
+  .note-eq {
+    margin-top: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: .75rem;
+    color: var(--text);
+    line-height: 2;
+  }
+  .note-eq em { font-style: normal; }
+  .nc1 .note-eq em { color: var(--accent1); }
+  .nc2 .note-eq em { color: var(--accent2); }
+  .nc3 .note-eq em { color: var(--accent3); }
+  .nc4 .note-eq em { color: var(--accent4); }
+  .nc5 .note-eq em { color: #34d399; }
+  .note-list {
+    margin-top: 10px; padding-left: 0; list-style: none;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .note-list li {
+    font-size: .79rem; color: var(--muted); display: flex; gap: 8px; align-items: baseline;
+  }
+  .note-list li::before { content: '›'; flex-shrink: 0; opacity: .5; }
+  .note-tag-row {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+  }
+  .note-tag {
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: .08em;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-label">Deep Learning · Computational Pathology</div>
+  <h1>Virtual <em>Staining</em><br>in Histological Analysis</h1>
+  <p class="header-sub">Transforming unstained or label-free tissue images into clinically-standard stained equivalents using deep neural networks — eliminating chemical reagents and enabling rapid, repeatable diagnostics.</p>
+  <div class="nav-pills">
+    <button class="pill active" onclick="scrollTo(0,0)">Overview</button>
+    <button class="pill" onclick="document.getElementById('s-histo').scrollIntoView({behavior:'smooth'})">Histology</button>
+    <button class="pill" onclick="document.getElementById('s-net').scrollIntoView({behavior:'smooth'})">Architecture</button>
+    <button class="pill" onclick="document.getElementById('s-lm').scrollIntoView({behavior:'smooth'})">LM Training</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- SECTION 1: HISTOLOGY APPLICATION -->
+  <section id="s-histo">
+    <div class="section-tag">§ 01 · Application</div>
+    <div class="section-title">Histological Stain Transformation</div>
+    <div class="section-desc">Virtual staining networks learn pixel-level mappings from autofluorescence or bright-field images to standard stains like H&amp;E, Masson's Trichrome, or IHC markers — without the tissue ever touching a reagent.</div>
+
+    <div class="histo-grid">
+      <div class="histo-card">
+        <div class="histo-card-label"><span class="dot" style="background:#6b7280"></span> INPUT · Unstained / Autofluorescence</div>
+        <canvas class="histo" id="unstainedCanvas" height="260"></canvas>
+      </div>
+      <div class="arrow-zone">
+        <svg class="arrow-svg" width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <path d="M8 20 H32 M24 12 L32 20 L24 28" stroke="#00e5c8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="arrow-label">NET</div>
+      </div>
+      <div class="histo-card">
+        <div class="histo-card-label"><span class="dot" style="background:#e07bbd"></span> OUTPUT · Virtual H&amp;E Stain</div>
+        <canvas class="histo" id="stainedCanvas" height="260"></canvas>
+      </div>
+    </div>
+    <div class="histo-legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#3d1a8e"></div>Hematoxylin (nuclei)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#e07bbd"></div>Eosin (cytoplasm)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f5e6d0"></div>Background tissue</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#e8667a"></div>Connective tissue</div>
+    </div>
+
+    <div class="app-grid">
+      <div class="app-card c1">
+        <div class="app-icon">🔬</div>
+        <div class="app-title">Tumor Margin Detection</div>
+        <div class="app-body">Virtual H&E enables rapid intraoperative assessment of resection margins, reducing time from biopsy to surgical decision.</div>
+      </div>
+      <div class="app-card c2">
+        <div class="app-icon">🧬</div>
+        <div class="app-title">IHC Marker Prediction</div>
+        <div class="app-body">Networks trained on paired datasets predict immunohistochemical marker expression (CD4, Ki-67, PD-L1) from H&E alone.</div>
+      </div>
+      <div class="app-card c3">
+        <div class="app-icon">📊</div>
+        <div class="app-title">Stain Normalization</div>
+        <div class="app-body">Reduce inter-lab staining variability by standardizing slides to a canonical virtual stain before downstream ML pipelines.</div>
+      </div>
+      <div class="app-card c4">
+        <div class="app-icon">⏱</div>
+        <div class="app-title">Rapid Frozen Sections</div>
+        <div class="app-body">Frozen section artifacts are computationally corrected to formalin-fixed paraffin-embedded quality for real-time pathology.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: NETWORK ARCHITECTURE -->
+  <section id="s-net">
+    <div class="section-tag">§ 02 · Architecture</div>
+    <div class="section-title">U-Net Style Neural Architecture</div>
+    <div class="section-desc">Virtual staining networks typically use encoder-decoder architectures with skip connections. The encoder extracts multi-scale features from unstained images; the decoder reconstructs stained equivalents with spatial detail restored via skip connections.</div>
+
+    <div class="network-wrap">
+      <canvas id="netCanvas" height="380"></canvas>
+      <div class="arch-legend">
+        <div class="arch-item"><div class="arch-swatch" style="background:rgba(0,229,200,.7)"></div>Encoder (downsampling)</div>
+        <div class="arch-item"><div class="arch-swatch" style="background:rgba(167,139,250,.7)"></div>Bottleneck</div>
+        <div class="arch-item"><div class="arch-swatch" style="background:rgba(251,191,36,.7)"></div>Decoder (upsampling)</div>
+        <div class="arch-item"><div class="arch-swatch" style="background:rgba(255,107,107,.7)"></div>Skip connections</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: LM BACKPROP + NOTES TABS -->
+  <section id="s-lm">
+    <div class="section-tag">§ 03 · Optimization</div>
+    <div class="section-title">Levenberg–Marquardt Backpropagation</div>
+    <div class="section-desc">LM combines the speed of Gauss-Newton near optima with the stability of gradient descent far from them — particularly effective for small networks learning pixel-intensity mappings in virtual staining.</div>
+
+    <!-- TAB BAR -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-lm-btn" onclick="switchTab('lm')">LM Training Demo</button>
+      <button class="tab-btn" id="tab-notes-btn" onclick="switchTab('notes')">Notes &amp; Concepts</button>
+    </div>
+
+    <!-- TAB: LM TRAINING -->
+    <div class="tab-panel active" id="tab-lm">
+      <div class="eq-block">
+        <em>Δw</em> = −(<em>J<sup>T</sup>J</em> + <em>λI</em>)<sup>−1</sup> <em>J<sup>T</sup>e</em><br>
+        <small>where J = Jacobian of residuals, λ = damping factor, e = error vector</small><br><br>
+        <em>λ → 0</em> : Gauss-Newton (fast, near optimum)<br>
+        <em>λ → ∞</em> : Gradient Descent (stable, far from optimum)
+      </div>
+
+      <div class="lm-layout" style="margin-top:24px">
+        <div class="lm-controls">
+          <div class="lm-title">// LM TRAINING SIMULATOR</div>
+
+          <div class="control-row">
+            <div class="control-label">Initial damping λ<sub>0</sub> <span id="lv">0.010</span></div>
+            <input type="range" id="lambdaSlider" min="-3" max="1" step="0.1" value="-2" oninput="updateSliders()">
+          </div>
+          <div class="control-row">
+            <div class="control-label">λ decay factor ν <span id="nv">10</span></div>
+            <input type="range" id="nuSlider" min="2" max="20" step="1" value="10" oninput="updateSliders()">
+          </div>
+          <div class="control-row">
+            <div class="control-label">Network noise level <span id="noiv">0.30</span></div>
+            <input type="range" id="noiseSlider" min="0.05" max="1" step="0.05" value="0.3" oninput="updateSliders()">
+          </div>
+          <div class="control-row">
+            <div class="control-label">Max epochs <span id="epv">40</span></div>
+            <input type="range" id="epochSlider" min="10" max="100" step="5" value="40" oninput="updateSliders()">
+          </div>
+
+          <button class="btn-run" id="runBtn" onclick="runLM()">▶ RUN TRAINING</button>
+
+          <div class="lm-stats">
+            <div class="stat-box">
+              <div class="stat-label">Final MSE Loss</div>
+              <div class="stat-val" id="statLoss">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Epochs to Conv.</div>
+              <div class="stat-val" id="statEpoch">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Final λ</div>
+              <div class="stat-val" id="statLambda">—</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Mode at Conv.</div>
+              <div class="stat-val" id="statMode">—</div>
+            </div>
+          </div>
+
+          <p class="tooltip-note">LM adapts λ each epoch: decrease when loss improves (Gauss-Newton mode), increase when it doesn't (gradient descent mode).</p>
+        </div>
+
+        <div class="lm-chart">
+          <div class="chart-title">// LOSS CURVE · VIRTUAL STAINING NETWORK</div>
+          <canvas id="lmCanvas" height="320"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: NOTES & CONCEPTS -->
+    <div class="tab-panel" id="tab-notes">
+      <div class="notes-page">
+
+        <!-- Virtual Staining Overview -->
+        <div class="note-card nc1">
+          <div class="note-heading">§ Core Concept</div>
+          <div class="note-title">What is Virtual Staining?</div>
+          <div class="note-body">
+            <p>Virtual staining is the computational transformation of unstained, label-free, or minimally processed tissue images into images that are visually and informationally equivalent to chemically stained histological slides.</p>
+            <p>Rather than applying dyes like hematoxylin and eosin (H&amp;E) to physical tissue, a trained neural network learns to predict what the stained image <em>would</em> look like — pixel by pixel — from autofluorescence, bright-field, or phase-contrast input.</p>
+          </div>
+          <div class="note-tag-row">
+            <span class="note-tag">label-free imaging</span>
+            <span class="note-tag">image-to-image translation</span>
+            <span class="note-tag">computational pathology</span>
+          </div>
+        </div>
+
+        <!-- Input Modalities -->
+        <div class="note-card nc2">
+          <div class="note-heading">§ Input Modalities</div>
+          <div class="note-title">Common Source Image Types</div>
+          <div class="note-list">
+            <li><strong>Autofluorescence</strong> — endogenous fluorophores (NADH, FAD, collagen) emit light under UV/blue excitation; tissue structure is visible without any exogenous dye.</li>
+            <li><strong>Bright-field (unstained)</strong> — standard white-light microscopy of a coverslipped, unprocessed section.</li>
+            <li><strong>Phase-contrast / DIC</strong> — optical techniques that convert refractive index differences into intensity contrast; useful for live-cell or fresh tissue imaging.</li>
+            <li><strong>Quantitative phase imaging (QPI)</strong> — measures optical path length differences; provides dry-mass density maps that networks can translate to H&amp;E.</li>
+            <li><strong>CARS / SRS microscopy</strong> — coherent Raman scattering gives lipid/protein contrast, particularly useful for brain or adipose tissue staining.</li>
+          </div>
+        </div>
+
+        <!-- H&E Stain Reference -->
+        <div class="note-card nc3">
+          <div class="note-heading">§ Histology Reference</div>
+          <div class="note-title">H&amp;E Stain — What Each Color Means</div>
+          <div class="note-kv">
+            <div class="kv-row"><span class="kv-key">Hematoxylin</span><span class="kv-val">Dark blue/purple. Binds to negatively charged DNA/RNA in nuclei and ribosomes. Marks cell nuclei, chromatin, and rough ER.</span></div>
+            <div class="kv-row"><span class="kv-key">Eosin</span><span class="kv-val">Pink/red. Binds to positively charged proteins (cytoplasm, ECM, collagen, muscle fibers). The counterstain to hematoxylin.</span></div>
+            <div class="kv-row"><span class="kv-key">Background</span><span class="kv-val">Pale pink/beige. Lightly eosinophilic extracellular matrix and interstitial fluid.</span></div>
+            <div class="kv-row"><span class="kv-key">Red blood cells</span><span class="kv-val">Bright orange-red. Intensely eosinophilic due to high hemoglobin concentration.</span></div>
+          </div>
+        </div>
+
+        <!-- Network Architecture -->
+        <div class="note-card nc1">
+          <div class="note-heading">§ Architecture</div>
+          <div class="note-title">U-Net Encoder–Decoder for Stain Translation</div>
+          <div class="note-body">
+            <p>The dominant architecture for virtual staining is a <strong>U-Net</strong> or U-Net variant (ResU-Net, Attention U-Net, TransUNet). The design has two symmetric halves:</p>
+          </div>
+          <div class="note-kv">
+            <div class="kv-row"><span class="kv-key">Encoder</span><span class="kv-val">Successive Conv→BN→ReLU blocks + max-pooling compress the image spatially while expanding channel depth. Extracts hierarchical features (edges → textures → structures).</span></div>
+            <div class="kv-row"><span class="kv-key">Bottleneck</span><span class="kv-val">The lowest spatial resolution; highest semantic abstraction. Often includes dropout for regularization.</span></div>
+            <div class="kv-row"><span class="kv-key">Decoder</span><span class="kv-val">Transposed convolutions (or bilinear upsampling + conv) progressively restore spatial resolution, guided by skip connections from matching encoder levels.</span></div>
+            <div class="kv-row"><span class="kv-key">Skip connections</span><span class="kv-val">Concatenate encoder feature maps directly to corresponding decoder layers. Preserve fine spatial detail (cell edges, chromatin texture) that would otherwise be lost through pooling.</span></div>
+          </div>
+        </div>
+
+        <!-- Loss Functions -->
+        <div class="note-card nc4">
+          <div class="note-heading">§ Training Objectives</div>
+          <div class="note-title">Loss Functions Used in Virtual Staining</div>
+          <div class="note-kv">
+            <div class="kv-row"><span class="kv-key">MSE / L2</span><span class="kv-val">Mean squared pixel error. Simple, differentiable. Tends to produce blurry outputs by averaging across modes of uncertainty.</span></div>
+            <div class="kv-row"><span class="kv-key">MAE / L1</span><span class="kv-val">Mean absolute error. More robust to outliers than L2; produces slightly sharper results.</span></div>
+            <div class="kv-row"><span class="kv-key">SSIM</span><span class="kv-val">Structural Similarity Index. Penalizes differences in luminance, contrast, and structure jointly — more perceptually aligned than pixel losses.</span></div>
+            <div class="kv-row"><span class="kv-key">Perceptual</span><span class="kv-val">Uses intermediate VGG/ResNet activations as feature spaces. Preserves texture and high-frequency detail. Common in GAN-based staining.</span></div>
+            <div class="kv-row"><span class="kv-key">Adversarial</span><span class="kv-val">GAN discriminator loss. Generator learns to fool a patch-level discriminator. Produces the sharpest, most realistic stained images.</span></div>
+          </div>
+        </div>
+
+        <!-- LM Algorithm -->
+        <div class="note-card nc4">
+          <div class="note-heading">§ Optimization</div>
+          <div class="note-title">Levenberg–Marquardt Algorithm</div>
+          <div class="note-body">
+            <p>LM is a second-order optimization method designed for nonlinear least-squares problems. It interpolates between two simpler methods based on a damping parameter λ:</p>
+          </div>
+          <div class="note-eq">
+            <em>Δw</em> = −(J<sup>T</sup>J + <em>λ</em>I)<sup>−1</sup> J<sup>T</sup>e<br>
+            <small style="color:var(--muted)">J = Jacobian · e = residual vector · λ = damping</small>
+          </div>
+          <div class="note-kv" style="margin-top:12px">
+            <div class="kv-row"><span class="kv-key">λ → 0</span><span class="kv-val">Approaches Gauss-Newton: uses curvature information, large steps, fast convergence near a good minimum.</span></div>
+            <div class="kv-row"><span class="kv-key">λ → ∞</span><span class="kv-val">Approaches gradient descent with small step size: safe and stable when far from a minimum or when the Hessian approximation is poor.</span></div>
+            <div class="kv-row"><span class="kv-key">λ update rule</span><span class="kv-val">If the proposed step reduces loss → accept step, divide λ by ν. If not → reject step, multiply λ by ν. ν is typically 10.</span></div>
+          </div>
+        </div>
+
+        <!-- LM vs SGD -->
+        <div class="note-card nc5">
+          <div class="note-heading">§ Comparison</div>
+          <div class="note-title">LM vs. Gradient Descent Variants</div>
+          <div class="note-kv">
+            <div class="kv-row"><span class="kv-key">LM</span><span class="kv-val">Second-order; uses Jacobian. Excellent for small-to-medium networks with MSE loss. Fewer epochs to convergence but high memory cost per step (J<sup>T</sup>J is n×n).</span></div>
+            <div class="kv-row"><span class="kv-key">SGD + momentum</span><span class="kv-val">First-order. Scales to large networks and minibatches. Requires careful LR tuning; may oscillate or get stuck in flat regions.</span></div>
+            <div class="kv-row"><span class="kv-key">Adam</span><span class="kv-val">Adaptive per-parameter LR. Robust default for large networks. Uses first and second moment estimates — not true second-order curvature.</span></div>
+            <div class="kv-row"><span class="kv-key">When to use LM</span><span class="kv-val">Small fully-connected or shallow CNNs. Regression tasks where the output space is a direct pixel mapping (as in virtual staining of small patches). Particularly effective when training data is limited.</span></div>
+          </div>
+        </div>
+
+        <!-- Key Metrics -->
+        <div class="note-card nc3">
+          <div class="note-heading">§ Evaluation</div>
+          <div class="note-title">Metrics for Assessing Virtual Stain Quality</div>
+          <div class="note-kv">
+            <div class="kv-row"><span class="kv-key">PSNR</span><span class="kv-val">Peak Signal-to-Noise Ratio. Log-scaled MSE. Higher is better; ≥30 dB generally indicates visually acceptable stain quality.</span></div>
+            <div class="kv-row"><span class="kv-key">SSIM</span><span class="kv-val">Structural Similarity Index. Range 0–1; captures luminance, contrast, structure. More correlated with pathologist perception than PSNR.</span></div>
+            <div class="kv-row"><span class="kv-key">FID</span><span class="kv-val">Fréchet Inception Distance. Measures distributional similarity between real and virtual stain image sets using Inception features.</span></div>
+            <div class="kv-row"><span class="kv-key">Turing test</span><span class="kv-val">Pathologist blinded comparison: can a board-certified pathologist distinguish virtual from real stain? High-quality systems pass at &gt;50% confusion rate.</span></div>
+            <div class="kv-row"><span class="kv-key">Downstream accuracy</span><span class="kv-val">The gold standard: does a classifier trained/evaluated on virtual stains perform equivalently to one on real stains? Evaluated on diagnostic tasks (e.g. cancer grading).</span></div>
+          </div>
+        </div>
+
+        <!-- Limitations -->
+        <div class="note-card nc2">
+          <div class="note-heading">§ Limitations &amp; Caveats</div>
+          <div class="note-title">Known Challenges in Virtual Staining</div>
+          <div class="note-list">
+            <li><strong>Domain shift</strong> — networks trained on one scanner/tissue type generalize poorly to others without retraining or domain adaptation.</li>
+            <li><strong>Rare structures</strong> — infrequent features (mitoses, specific cell types) may be underrepresented in training data and hallucinated or missed.</li>
+            <li><strong>Registration artifacts</strong> — paired training data requires precise alignment of unstained and stained images; any misregistration degrades training signal.</li>
+            <li><strong>Color/stain batch variability</strong> — real H&amp;E staining varies across labs and operators; the "ground truth" itself is noisy.</li>
+            <li><strong>Regulatory acceptance</strong> — virtual stains are not yet FDA-cleared as primary diagnostic tools in most clinical settings (2024); used mainly for research.</li>
+            <li><strong>LM scalability</strong> — LM requires forming and inverting J<sup>T</sup>J, which is O(n²) in number of parameters. Not practical for large CNNs without approximations.</li>
+          </div>
+        </div>
+
+        <!-- Key Papers -->
+        <div class="note-card nc5">
+          <div class="note-heading">§ Landmark Work</div>
+          <div class="note-title">Key Papers &amp; Milestones</div>
+          <div class="note-list">
+            <li><strong>Rivenson et al. (2019)</strong> — "PhaseStain": demonstrated deep learning H&amp;E virtual staining from quantitative phase images using a GAN. <em>Light: Science &amp; Applications.</em></li>
+            <li><strong>Christiansen et al. (2018)</strong> — "In Silico Labeling": predicted fluorescent labels from bright-field images using a CNN. <em>Cell.</em></li>
+            <li><strong>Ounkomol et al. (2018)</strong> — predicted 3D fluorescence structures from label-free microscopy. <em>Nature Methods.</em></li>
+            <li><strong>Liu et al. (2022)</strong> — virtual staining of CARS/SRS Raman images to H&amp;E for rapid intraoperative brain tumor assessment.</li>
+            <li><strong>Ronneberger et al. (2015)</strong> — original U-Net paper; remains the backbone of most virtual staining architectures. <em>MICCAI.</em></li>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* ─── UTILS ─── */
+const dpr = window.devicePixelRatio || 1;
+function hiDPI(canvas) {
+  const w = canvas.offsetWidth, h = canvas.height;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.getContext('2d').scale(dpr, dpr);
+  return [w, h];
+}
+
+/* ─── HISTOLOGY CANVAS ─── */
+function drawHistology() {
+  const cells = [];
+  function seed(s){ let x=s; return ()=>{ x=Math.sin(x)*43758.5453123; return x-Math.floor(x); } }
+
+  function makeField(canvas, stained, seedN) {
+    const rng = seed(seedN);
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.height * dpr;
+    const w = canvas.offsetWidth, h = canvas.offsetHeight || 260;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // background
+    ctx.fillStyle = stained ? '#f5e6d0' : '#2a2a35';
+    ctx.fillRect(0, 0, w, h);
+
+    // noise texture
+    for(let i=0; i<2000; i++){
+      const x=rng()*w, y=rng()*h;
+      ctx.fillStyle = stained
+        ? `rgba(${180+rng()*40},${140+rng()*40},${110+rng()*30},0.18)`
+        : `rgba(${60+rng()*30},${60+rng()*30},${80+rng()*20},0.12)`;
+      ctx.fillRect(x,y,rng()*3+1,rng()*3+1);
+    }
+
+    // stromal fibres
+    for(let i=0;i<12;i++){
+      const x1=rng()*w,y1=rng()*h,x2=rng()*w,y2=rng()*h;
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+      ctx.strokeStyle = stained ? 'rgba(220,160,160,0.25)' : 'rgba(80,80,120,0.2)';
+      ctx.lineWidth = rng()*1.5+0.5; ctx.stroke();
+    }
+
+    // cells
+    const cellList = [];
+    for(let i=0;i<28;i++){
+      cellList.push({ x:rng()*w, y:rng()*h, r:8+rng()*14, nr:4+rng()*5, type:rng()>.3?'epi':'stroma' });
+    }
+    cellList.forEach(c=>{
+      if(stained){
+        // cytoplasm
+        const cg = ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.r);
+        if(c.type==='epi'){
+          cg.addColorStop(0,'rgba(230,140,190,0.9)'); cg.addColorStop(1,'rgba(210,110,160,0.4)');
+        } else {
+          cg.addColorStop(0,'rgba(240,180,170,0.8)'); cg.addColorStop(1,'rgba(220,150,140,0.3)');
+        }
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+        ctx.fillStyle=cg; ctx.fill();
+        ctx.strokeStyle='rgba(180,80,100,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+        // nucleus
+        const ng=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.nr);
+        ng.addColorStop(0,'rgba(60,20,150,1)'); ng.addColorStop(1,'rgba(40,10,120,0.85)');
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.nr,0,Math.PI*2);
+        ctx.fillStyle=ng; ctx.fill();
+        // chromatin dots
+        for(let d=0;d<3;d++){
+          const dx=(rng()-.5)*c.nr*.8, dy=(rng()-.5)*c.nr*.8;
+          ctx.beginPath(); ctx.arc(c.x+dx,c.y+dy,rng()*1.5+.5,0,Math.PI*2);
+          ctx.fillStyle='rgba(100,50,200,0.7)'; ctx.fill();
+        }
+      } else {
+        // autofluorescence
+        const ag=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.r);
+        ag.addColorStop(0,'rgba(100,200,180,0.35)'); ag.addColorStop(1,'rgba(60,150,130,0.05)');
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.r,0,Math.PI*2);
+        ctx.fillStyle=ag; ctx.fill();
+        // faint nucleus ring
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.nr,0,Math.PI*2);
+        ctx.strokeStyle='rgba(120,220,200,0.4)'; ctx.lineWidth=0.8; ctx.stroke();
+      }
+    });
+
+    if(!stained){
+      // scan-line overlay for autofluorescence effect
+      for(let y=0;y<h;y+=4){
+        ctx.fillStyle='rgba(0,0,0,0.08)';
+        ctx.fillRect(0,y,w,2);
+      }
+      // green tint overlay
+      ctx.fillStyle='rgba(0,220,160,0.04)';
+      ctx.fillRect(0,0,w,h);
+    }
+  }
+
+  const uc=document.getElementById('unstainedCanvas');
+  const sc=document.getElementById('stainedCanvas');
+  setTimeout(()=>{ makeField(uc,false,42); makeField(sc,true,42); },50);
+}
+
+/* ─── NETWORK ARCHITECTURE ─── */
+function drawNetwork() {
+  const canvas = document.getElementById('netCanvas');
+  setTimeout(()=>{
+    const W = canvas.offsetWidth;
+    const H = 380;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.clearRect(0,0,W,H);
+
+    // Background grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for(let x=0;x<W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    const CY = H/2;
+    const layers = [
+      // encoder
+      {x:.06, h:160, w:28, color:'rgba(0,229,200,0.75)', label:'Conv\n64', sublabel:'Input\n256×256'},
+      {x:.16, h:120, w:28, color:'rgba(0,229,200,0.65)', label:'Conv\n128', sublabel:'Pool\n128×128'},
+      {x:.26, h:88,  w:28, color:'rgba(0,200,180,0.6)',  label:'Conv\n256', sublabel:'Pool\n64×64'},
+      {x:.36, h:60,  w:28, color:'rgba(0,180,160,0.55)', label:'Conv\n512', sublabel:'Pool\n32×32'},
+      // bottleneck
+      {x:.50, h:40,  w:36, color:'rgba(167,139,250,0.8)',label:'Conv\n1024',sublabel:'BN · Drop'},
+      // decoder
+      {x:.64, h:60,  w:28, color:'rgba(251,191,36,0.55)', label:'Up\n512', sublabel:'32×32'},
+      {x:.74, h:88,  w:28, color:'rgba(251,191,36,0.6)',  label:'Up\n256', sublabel:'64×64'},
+      {x:.84, h:120, w:28, color:'rgba(251,191,36,0.65)', label:'Up\n128', sublabel:'128×128'},
+      {x:.94, h:160, w:28, color:'rgba(251,191,36,0.75)', label:'Conv\n3',  sublabel:'Output\n256×256'},
+    ];
+
+    // skip connections (encoder → decoder pairs)
+    const skipPairs = [[0,8],[1,7],[2,6],[3,5]];
+    skipPairs.forEach(([ei,di])=>{
+      const eL = layers[ei], dL = layers[di];
+      const ex = eL.x*W + eL.w/2;
+      const dx = dL.x*W + dL.w/2;
+      const ey1 = CY - eL.h/2;
+      const dy1 = CY - dL.h/2;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey1);
+      ctx.bezierCurveTo(ex, ey1-50, dx, dy1-50, dx, dy1);
+      ctx.strokeStyle='rgba(255,107,107,0.35)';
+      ctx.lineWidth=1.5;
+      ctx.setLineDash([4,4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    // connecting lines between adjacent layers
+    for(let i=0;i<layers.length-1;i++){
+      const a=layers[i], b=layers[i+1];
+      ctx.beginPath();
+      ctx.moveTo(a.x*W+a.w, CY);
+      ctx.lineTo(b.x*W, CY);
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.lineWidth=2;
+      ctx.stroke();
+    }
+
+    // draw layer blocks
+    layers.forEach((l,i)=>{
+      const x = l.x*W;
+      const y = CY - l.h/2;
+
+      // shadow
+      ctx.shadowColor = l.color.replace('0.','0.4').replace(')',',0.4)');
+      ctx.shadowBlur = 18;
+
+      // gradient block
+      const gr = ctx.createLinearGradient(x, y, x+l.w, y+l.h);
+      gr.addColorStop(0, l.color);
+      gr.addColorStop(1, l.color.replace(/[\d.]+\)$/, '0.3)'));
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.roundRect(x, y, l.w, l.h, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // border
+      ctx.strokeStyle = l.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // label inside
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${l.w > 32 ? 9 : 8}px Space Mono, monospace`;
+      ctx.textAlign = 'center';
+      const lines = l.label.split('\n');
+      lines.forEach((ln,li)=>{
+        ctx.fillText(ln, x+l.w/2, y+l.h/2 - (lines.length-1)*7 + li*14);
+      });
+
+      // sublabel below
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '7px Space Mono, monospace';
+      l.sublabel.split('\n').forEach((ln,li)=>{
+        ctx.fillText(ln, x+l.w/2, y+l.h + 14 + li*10);
+      });
+    });
+
+    // Label: Encoder / Bottleneck / Decoder
+    const labels = [{x:.21,t:'ENCODER',c:'rgba(0,229,200,.7)'},{x:.50,t:'BOTTLENECK',c:'rgba(167,139,250,.7)'},{x:.79,t:'DECODER',c:'rgba(251,191,36,.7)'}];
+    labels.forEach(l=>{
+      ctx.fillStyle=l.c;
+      ctx.font='bold 9px Space Mono, monospace';
+      ctx.textAlign='center';
+      ctx.fillText(l.t, l.x*W, 22);
+    });
+
+    // Input / Output labels
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.font='9px DM Sans, sans-serif';
+    ctx.textAlign='left';
+    ctx.fillText('Unstained Image', layers[0].x*W, H-8);
+    ctx.textAlign='right';
+    ctx.fillText('Virtual H&E', layers[8].x*W+layers[8].w, H-8);
+
+  }, 80);
+}
+
+/* ─── LM SIMULATION ─── */
+let lmHistory = [];
+let animId = null;
+
+function updateSliders(){
+  const lv = Math.pow(10, parseFloat(document.getElementById('lambdaSlider').value));
+  document.getElementById('lv').textContent = lv.toFixed(3);
+  document.getElementById('nv').textContent = document.getElementById('nuSlider').value;
+  document.getElementById('noiv').textContent = document.getElementById('noiseSlider').value;
+  document.getElementById('epv').textContent = document.getElementById('epochSlider').value;
+}
+
+function simulateLM() {
+  const lambda0 = Math.pow(10, parseFloat(document.getElementById('lambdaSlider').value));
+  const nu = parseFloat(document.getElementById('nuSlider').value);
+  const noise = parseFloat(document.getElementById('noiseSlider').value);
+  const maxEpoch = parseInt(document.getElementById('epochSlider').value);
+
+  let loss = 0.6 + noise * 0.4 + Math.random() * 0.1;
+  let lambda = lambda0;
+  const hist = [];
+  const lambdaHist = [];
+  let convEpoch = maxEpoch;
+
+  for(let e=0; e<maxEpoch; e++){
+    // LM update: effective step depends on lambda
+    const dampFactor = 1 / (1 + lambda);
+    const curvature = 0.15 + Math.random() * 0.05;
+    const newLoss = loss * (1 - dampFactor * curvature) + (Math.random() - 0.5) * noise * 0.04;
+
+    if(newLoss < loss){
+      loss = Math.max(newLoss, 0.001);
+      lambda /= nu; // reduce damping → more Gauss-Newton
+    } else {
+      lambda *= nu; // increase damping → more gradient descent
+    }
+    lambda = Math.min(Math.max(lambda, 1e-7), 1e6);
+    hist.push(loss);
+    lambdaHist.push(lambda);
+
+    if(loss < 0.008 && convEpoch === maxEpoch) convEpoch = e+1;
+  }
+  return { hist, lambdaHist, convEpoch, finalLoss: loss, finalLambda: lambda };
+}
+
+function drawLMChart(result) {
+  const canvas = document.getElementById('lmCanvas');
+  const W = canvas.offsetWidth;
+  const H = 300;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const pad = { l:52, r:24, t:20, b:40 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<=4;i++){
+    const y = pad.t + i*(ch/4);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cw,y); ctx.stroke();
+  }
+
+  const n = result.hist.length;
+  const maxL = Math.max(...result.hist) * 1.1;
+
+  function xp(i){ return pad.l + (i/n)*cw; }
+  function yp(v){ return pad.t + ch - (v/maxL)*ch; }
+
+  // lambda area (scaled)
+  const maxLam = Math.max(...result.lambdaHist);
+  ctx.beginPath();
+  result.lambdaHist.forEach((v,i)=>{
+    const x=xp(i), y=pad.t+ch-(Math.log10(v+1)/Math.log10(maxLam+1))*ch*.6;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='rgba(167,139,250,0.3)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([3,4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // loss area fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+ch);
+  grad.addColorStop(0,'rgba(251,191,36,0.25)');
+  grad.addColorStop(1,'rgba(251,191,36,0)');
+  ctx.beginPath();
+  result.hist.forEach((v,i)=>{ const x=xp(i),y=yp(v); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.lineTo(xp(n-1), pad.t+ch);
+  ctx.lineTo(pad.l, pad.t+ch);
+  ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+
+  // loss line
+  ctx.beginPath();
+  result.hist.forEach((v,i)=>{ const x=xp(i),y=yp(v); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+  ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2.5; ctx.stroke();
+
+  // convergence marker
+  if(result.convEpoch < n){
+    const cx=xp(result.convEpoch), cy=yp(result.hist[result.convEpoch-1]||result.hist[result.hist.length-1]);
+    ctx.beginPath(); ctx.arc(cx,cy,5,0,Math.PI*2);
+    ctx.fillStyle='#00e5c8'; ctx.fill();
+    ctx.fillStyle='rgba(0,229,200,0.8)'; ctx.font='9px Space Mono,monospace'; ctx.textAlign='left';
+    ctx.fillText('converged', cx+8, cy+4);
+  }
+
+  // axes
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ch); ctx.lineTo(pad.l+cw,pad.t+ch); ctx.stroke();
+
+  // y-axis labels
+  ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='8px Space Mono,monospace'; ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const v=(1-i/4)*maxL;
+    ctx.fillText(v.toFixed(2), pad.l-6, pad.t+(i/4)*ch+3);
+  }
+  // x-axis labels
+  ctx.textAlign='center';
+  [0,.25,.5,.75,1].forEach(t=>{
+    ctx.fillText(Math.round(t*n), pad.l+t*cw, pad.t+ch+14);
+  });
+
+  // axis titles
+  ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='8px DM Sans,sans-serif';
+  ctx.textAlign='center'; ctx.fillText('Epoch', pad.l+cw/2, H-4);
+  ctx.save(); ctx.translate(12, pad.t+ch/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('MSE Loss', 0, 0); ctx.restore();
+
+  // legend
+  ctx.fillStyle='#fbbf24'; ctx.beginPath(); ctx.moveTo(pad.l+10,24); ctx.lineTo(pad.l+26,24); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2; ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font='8px Space Mono,monospace'; ctx.textAlign='left'; ctx.fillText('MSE Loss', pad.l+30, 27);
+  ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(pad.l+110,24); ctx.lineTo(pad.l+126,24); ctx.strokeStyle='rgba(167,139,250,0.6)'; ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.fillText('λ (damping)', pad.l+130, 27);
+}
+
+function runLM(){
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true; btn.textContent = '⏳ TRAINING...';
+
+  setTimeout(()=>{
+    const result = simulateLM();
+    lmHistory = result.hist;
+    drawLMChart(result);
+
+    document.getElementById('statLoss').textContent = result.finalLoss.toFixed(4);
+    document.getElementById('statEpoch').textContent = result.convEpoch < parseInt(document.getElementById('epochSlider').value) ? result.convEpoch : '>' + document.getElementById('epochSlider').value;
+    document.getElementById('statLambda').textContent = result.finalLambda.toExponential(1);
+    document.getElementById('statMode').textContent = result.finalLambda < 0.1 ? 'G-N' : result.finalLambda > 10 ? 'GD' : 'Mixed';
+
+    btn.disabled = false; btn.textContent = '▶ RUN TRAINING';
+  }, 400);
+}
+
+/* ─── TABS ─── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('tab-' + name + '-btn').classList.add('active');
+}
+
+/* ─── INIT ─── */
+window.addEventListener('load', ()=>{
+  updateSliders();
+  drawHistology();
+  drawNetwork();
+  runLM();
+});
+window.addEventListener('resize', ()=>{
+  drawHistology();
+  drawNetwork();
+  if(lmHistory.length) runLM();
+});
+</script>
+</body>
+</html>
