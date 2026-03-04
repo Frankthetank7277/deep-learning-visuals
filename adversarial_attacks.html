@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adversarial Attacks in Deep Learning</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0a0f1e;
+    --surface2: #0d1428;
+    --border: #1a2340;
+    --accent: #00f5d4;
+    --accent2: #ff3864;
+    --accent3: #f5a623;
+    --accent4: #7b2fff;
+    --text: #c8d6f0;
+    --text-dim: #5a6a8a;
+    --text-bright: #e8f0ff;
+    --glow: 0 0 20px rgba(0,245,212,0.3);
+    --glow-red: 0 0 20px rgba(255,56,100,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,212,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,212,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 60px 0 40px;
+    text-align: center;
+    position: relative;
+  }
+
+  .header-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(28px, 5vw, 56px);
+    font-weight: 900;
+    color: var(--text-bright);
+    line-height: 1.1;
+    letter-spacing: -1px;
+    text-shadow: 0 0 40px rgba(0,245,212,0.4);
+  }
+
+  h1 span { color: var(--accent2); text-shadow: 0 0 40px rgba(255,56,100,0.5); }
+
+  .header-sub {
+    margin-top: 16px;
+    color: var(--text-dim);
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 1px;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 40px 0 32px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .tab:hover { color: var(--text); background: var(--surface2); }
+
+  .tab.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .tab-content { display: none; animation: fadeIn 0.3s ease; }
+  .tab-content.active { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.6;
+  }
+
+  .card.red::before { background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
+  .card.gold::before { background: linear-gradient(90deg, transparent, var(--accent3), transparent); }
+  .card.purple::before { background: linear-gradient(90deg, transparent, var(--accent4), transparent); }
+
+  .card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .card.red .card-title { color: var(--accent2); }
+  .card.gold .card-title { color: var(--accent3); }
+  .card.purple .card-title { color: var(--accent4); }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  /* MATH */
+  .math-block {
+    background: #000;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    color: var(--accent);
+    text-align: center;
+    box-shadow: inset 0 0 20px rgba(0,245,212,0.05), var(--glow);
+    line-height: 2;
+  }
+
+  .math-block.red {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    box-shadow: inset 0 0 20px rgba(255,56,100,0.05), var(--glow-red);
+  }
+
+  .math-block .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+    text-align: left;
+  }
+
+  /* IMAGE CLASSIFIER VIZ */
+  .classifier-demo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 24px 0;
+  }
+
+  .img-box {
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    border: 2px solid var(--border);
+    position: relative;
+    background: #000;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .img-box canvas { position: absolute; inset: 0; }
+
+  .arrow {
+    font-size: 28px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .plus-sign {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    color: var(--accent2);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .label-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .label-box .conf { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .label-box.correct .conf { color: var(--accent); }
+  .label-box.wrong .conf { color: var(--accent2); }
+
+  /* ATTACK TYPE CARDS */
+  .attack-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 24px 0;
+  }
+
+  .attack-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+    cursor: default;
+  }
+
+  .attack-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .attack-card.red:hover { border-color: var(--accent2); }
+  .attack-card.gold:hover { border-color: var(--accent3); }
+  .attack-card.purple:hover { border-color: var(--accent4); }
+
+  .attack-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    background: rgba(0,245,212,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,245,212,0.3);
+  }
+
+  .attack-card.red .attack-badge {
+    background: rgba(255,56,100,0.1);
+    color: var(--accent2);
+    border-color: rgba(255,56,100,0.3);
+  }
+
+  .attack-card.gold .attack-badge {
+    background: rgba(245,166,35,0.1);
+    color: var(--accent3);
+    border-color: rgba(245,166,35,0.3);
+  }
+
+  .attack-card.purple .attack-badge {
+    background: rgba(123,47,255,0.1);
+    color: var(--accent4);
+    border-color: rgba(123,47,255,0.3);
+  }
+
+  .attack-card h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+  }
+
+  .attack-card p { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+
+  /* PROGRESS BARS */
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+  }
+
+  .bar-label {
+    width: 120px;
+    font-size: 13px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease;
+  }
+
+  .bar-val {
+    width: 45px;
+    text-align: right;
+    font-size: 13px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  /* PERTURBATION VIZ */
+  #perturbCanvas { display: block; margin: 0 auto; border-radius: 8px; }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent4));
+    opacity: 0.4;
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .timeline-year {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .timeline-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+
+  .timeline-desc { font-size: 14px; color: var(--text-dim); }
+
+  /* DEFENSE TABLE */
+  .defense-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .defense-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+
+  .defense-item h4 {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .defense-item p { font-size: 13px; color: var(--text-dim); }
+
+  /* NOTES SECTION */
+  .notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .note-block {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+  }
+
+  .note-block.red { border-left-color: var(--accent2); }
+  .note-block.gold { border-left-color: var(--accent3); }
+  .note-block.purple { border-left-color: var(--accent4); }
+
+  .note-block h4 {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .note-block.red h4 { color: var(--accent2); }
+  .note-block.gold h4 { color: var(--accent3); }
+  .note-block.purple h4 { color: var(--accent4); }
+
+  .note-block ul { list-style: none; padding: 0; }
+  .note-block li {
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+
+  .note-block li::before {
+    content: '▸';
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .note-block.red li::before { color: var(--accent2); }
+  .note-block.gold li::before { color: var(--accent3); }
+  .note-block.purple li::before { color: var(--accent4); }
+
+  /* INTERACTIVE SLIDER */
+  .slider-section {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+  }
+
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: var(--glow);
+  }
+
+  .slider-val {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    width: 50px;
+    text-align: right;
+  }
+
+  /* SECTION DIVIDER */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 32px 0;
+  }
+
+  /* CALLOUT */
+  .callout {
+    border-left: 3px solid var(--accent3);
+    padding: 12px 18px;
+    background: rgba(245,166,35,0.05);
+    border-radius: 0 6px 6px 0;
+    margin: 16px 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .callout strong { color: var(--accent3); }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+
+  /* Noise overlay */
+  .noise {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .section-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,245,212,0.1);
+    border: 1px solid rgba(0,245,212,0.3);
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    flex-shrink: 0;
+  }
+
+  h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    color: var(--text-bright);
+    letter-spacing: 1px;
+  }
+
+  p { line-height: 1.7; color: var(--text); }
+
+  .highlight { color: var(--accent); font-weight: 600; }
+  .highlight-red { color: var(--accent2); font-weight: 600; }
+
+  /* Animated scan line */
+  @keyframes scan {
+    0% { top: -100%; }
+    100% { top: 200%; }
+  }
+
+  .scanline {
+    position: fixed;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,245,212,0.08), transparent);
+    pointer-events: none;
+    z-index: 0;
+    animation: scan 8s linear infinite;
+  }
+
+  /* Epsilon table */
+  .eps-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 16px 0;
+  }
+
+  .eps-table th {
+    background: var(--surface2);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eps-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+  }
+
+  .eps-table tr:hover td { background: rgba(0,245,212,0.03); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-green { background: rgba(0,245,212,0.15); color: var(--accent); }
+  .tag-red { background: rgba(255,56,100,0.15); color: var(--accent2); }
+  .tag-gold { background: rgba(245,166,35,0.15); color: var(--accent3); }
+
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div class="scanline"></div>
+
+<div class="container">
+  <header>
+    <div class="header-tag">// Deep Learning Security</div>
+    <h1>Adversarial <span>Attacks</span></h1>
+    <p class="header-sub">Exploiting the Vulnerability of Neural Networks</p>
+  </header>
+
+  <!-- TABS -->
+  <nav class="tabs">
+    <button class="tab active" onclick="switchTab('foundations')">Foundations</button>
+    <button class="tab" onclick="switchTab('attacks')">Attack Types</button>
+    <button class="tab" onclick="switchTab('methods')">Methods & Math</button>
+    <button class="tab" onclick="switchTab('defense')">Defense</button>
+    <button class="tab" onclick="switchTab('interactive')">Interactive</button>
+    <button class="tab" onclick="switchTab('notes')">Quick Notes</button>
+  </nav>
+
+  <!-- ===================== FOUNDATIONS ===================== -->
+  <div id="tab-foundations" class="tab-content active">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <h2>What Are Adversarial Attacks?</h2>
+      </div>
+      <p>Adversarial attacks are <span class="highlight">carefully crafted input perturbations</span> designed to fool neural networks into making incorrect predictions. These perturbations are typically <span class="highlight">imperceptible to humans</span> but cause catastrophic failures in deep learning models.</p>
+      <div class="callout">
+        <strong>Key Insight:</strong> Neural networks learn highly non-linear decision boundaries in high-dimensional spaces. Adversarial examples exploit the geometry of these boundaries — tiny steps in the right direction can cross decision boundaries while remaining visually identical to humans.
+      </div>
+      <p>First demonstrated by Szegedy et al. (2013), adversarial examples pose serious security concerns for real-world AI deployments in autonomous vehicles, medical imaging, and security systems.</p>
+    </div>
+
+    <!-- Visual Demo -->
+    <div class="card red">
+      <div class="card-title">Visual Demo: The Panda Attack</div>
+      <div class="classifier-demo">
+        <div>
+          <div class="img-box">
+            <canvas id="cleanImg" width="120" height="120"></canvas>
+          </div>
+          <div class="label-box correct" style="margin-top:8px">
+            <div>PREDICTION</div>
+            <div class="conf">Panda</div>
+            <div style="font-size:11px;color:#5a6a8a">99.3% confidence</div>
+          </div>
+        </div>
+        <div class="plus-sign">+</div>
+        <div>
+          <div class="img-box" style="border-color:#ff3864">
+            <canvas id="perturbImg" width="120" height="120"></canvas>
+          </div>
+          <div class="label-box wrong" style="margin-top:8px">
+            <div>PERTURBATION</div>
+            <div class="conf" style="font-size:14px">ε × sign(∇ₓJ)</div>
+            <div style="font-size:11px;color:#5a6a8a">amplified ×10 for visibility</div>
+          </div>
+        </div>
+        <div class="arrow">→</div>
+        <div>
+          <div class="img-box" style="border-color:#ff3864">
+            <canvas id="advImg" width="120" height="120"></canvas>
+          </div>
+          <div class="label-box wrong" style="margin-top:8px">
+            <div>PREDICTION</div>
+            <div class="conf">Gibbon</div>
+            <div style="font-size:11px;color:#ff3864">99.7% confidence</div>
+          </div>
+        </div>
+      </div>
+      <p style="text-align:center;font-size:13px;color:var(--text-dim);margin-top:8px">Goodfellow et al. (2015) FGSM attack — ε = 0.007 on ImageNet-normalized image</p>
+    </div>
+
+    <!-- Why They Exist -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">The Geometry Problem</div>
+        <p style="font-size:14px;margin-bottom:12px">In high-dimensional input spaces, most volume lies near the boundary of the input manifold. Neural networks trained via ERM generalize well on the <em>data manifold</em> but leave vast regions of input space unconstrained.</p>
+        <div class="math-block">
+          <span class="label">Adversarial Direction Exists Because:</span>
+          dim(input) ≫ dim(manifold)<br>
+          ∴ ∃δ: ‖δ‖∞ ≤ ε, f(x+δ) ≠ f(x)
+        </div>
+        <p style="font-size:13px;color:var(--text-dim)">The input dimensionality (e.g. 224×224×3 = 150,528) vastly exceeds the intrinsic dimensionality of natural images, leaving exploitable directions.</p>
+      </div>
+
+      <div class="card gold">
+        <div class="card-title">Historical Timeline</div>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-year">2013</div>
+            <div class="timeline-title">Szegedy et al.</div>
+            <div class="timeline-desc">First discovery of adversarial examples using L-BFGS optimization on neural networks.</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-year">2015</div>
+            <div class="timeline-title">Goodfellow et al.</div>
+            <div class="timeline-desc">FGSM introduced — fast, single-step gradient sign method. Linear hypothesis proposed.</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-year">2017</div>
+            <div class="timeline-title">Madry et al.</div>
+            <div class="timeline-desc">PGD attack and adversarial training framework; still considered gold standard defense.</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-year">2018</div>
+            <div class="timeline-title">Carlini & Wagner</div>
+            <div class="timeline-desc">C&W attack; demonstrated most defenses of the era were ineffective.</div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-year">2019+</div>
+            <div class="timeline-title">Physical & Real-World</div>
+            <div class="timeline-desc">Stop sign attacks, face recognition fooling, NLP adversarial examples.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threat Model -->
+    <div class="card purple">
+      <div class="card-title">Threat Model Framework</div>
+      <div class="grid-3">
+        <div style="padding:16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--accent4);margin-bottom:8px">ADVERSARY GOAL</div>
+          <ul style="list-style:none;font-size:14px;color:var(--text-dim)">
+            <li style="padding:4px 0">▸ Misclassification (untargeted)</li>
+            <li style="padding:4px 0">▸ Specific target class</li>
+            <li style="padding:4px 0">▸ Model extraction</li>
+            <li style="padding:4px 0">▸ Data poisoning</li>
+          </ul>
+        </div>
+        <div style="padding:16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--accent4);margin-bottom:8px">ADVERSARY KNOWLEDGE</div>
+          <ul style="list-style:none;font-size:14px;color:var(--text-dim)">
+            <li style="padding:4px 0">▸ Full model (white-box)</li>
+            <li style="padding:4px 0">▸ Output probabilities</li>
+            <li style="padding:4px 0">▸ Hard labels only</li>
+            <li style="padding:4px 0">▸ No model access</li>
+          </ul>
+        </div>
+        <div style="padding:16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--accent4);margin-bottom:8px">PERTURBATION BUDGET</div>
+          <ul style="list-style:none;font-size:14px;color:var(--text-dim)">
+            <li style="padding:4px 0">▸ L∞ norm constraint</li>
+            <li style="padding:4px 0">▸ L₂ norm constraint</li>
+            <li style="padding:4px 0">▸ L₀ (sparse) attacks</li>
+            <li style="padding:4px 0">▸ Semantic constraints</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== ATTACK TYPES ===================== -->
+  <div id="tab-attacks" class="tab-content">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <h2>Taxonomy of Adversarial Attacks</h2>
+      </div>
+      <p>Adversarial attacks are categorized along multiple dimensions: adversary knowledge, perturbation objective, timing relative to training, and the attack surface targeted.</p>
+    </div>
+
+    <!-- Knowledge-Based -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">White-Box Attacks</div>
+        <p style="font-size:14px;margin-bottom:12px">The attacker has <span class="highlight">complete knowledge</span> of the model: architecture, weights, training data, and gradients. This is the strongest attack assumption.</p>
+        <div style="padding:14px;background:rgba(0,245,212,0.05);border-radius:6px;margin-bottom:12px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:6px">CAPABILITIES</div>
+          <ul style="list-style:none;font-size:13px;color:var(--text-dim)">
+            <li style="padding:3px 0">✓ Direct gradient computation</li>
+            <li style="padding:3px 0">✓ Loss landscape exploration</li>
+            <li style="padding:3px 0">✓ Architecture exploitation</li>
+            <li style="padding:3px 0">✓ Iterative refinement</li>
+          </ul>
+        </div>
+        <div style="font-size:13px;color:var(--text-dim)"><span style="color:var(--accent3)">Examples:</span> FGSM, PGD, C&W, DeepFool</div>
+      </div>
+
+      <div class="card red">
+        <div class="card-title">Black-Box Attacks</div>
+        <p style="font-size:14px;margin-bottom:12px">The attacker has <span class="highlight-red">no direct access</span> to model internals. Must rely on query outputs or transferability of adversarial examples.</p>
+        <div style="padding:14px;background:rgba(255,56,100,0.05);border-radius:6px;margin-bottom:12px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--accent2);margin-bottom:6px">STRATEGIES</div>
+          <ul style="list-style:none;font-size:13px;color:var(--text-dim)">
+            <li style="padding:3px 0">▸ Transfer-based: craft on surrogate model</li>
+            <li style="padding:3px 0">▸ Score-based: use output probabilities</li>
+            <li style="padding:3px 0">▸ Decision-based: use hard labels only</li>
+            <li style="padding:3px 0">▸ Query-efficient optimization</li>
+          </ul>
+        </div>
+        <div style="font-size:13px;color:var(--text-dim)"><span style="color:var(--accent3)">Examples:</span> ZOO, HopSkipJump, NES Attack</div>
+      </div>
+    </div>
+
+    <!-- Objective Based -->
+    <div class="grid-2">
+      <div class="card gold">
+        <div class="card-title">Untargeted Attacks</div>
+        <p style="font-size:14px;margin-bottom:12px">Goal: cause <span style="color:var(--accent3)">any misclassification</span>. Maximize the loss for the true class, pushing the sample away from the correct decision boundary in any direction.</p>
+        <div class="math-block" style="border-color:var(--accent3);color:var(--accent3)">
+          <span class="label" style="color:var(--text-dim)">Objective:</span>
+          max_δ J(f(x+δ), y_true)<br>
+          subject to ‖δ‖ ≤ ε
+        </div>
+        <p style="font-size:13px;color:var(--text-dim)">Easier to achieve; any wrong label is a success. Useful for denial-of-service attacks on classifiers.</p>
+      </div>
+
+      <div class="card purple">
+        <div class="card-title">Targeted Attacks</div>
+        <p style="font-size:14px;margin-bottom:12px">Goal: cause the model to predict a <span style="color:var(--accent4)">specific wrong class</span> y_target. More constrained and harder to achieve, but more dangerous.</p>
+        <div class="math-block" style="border-color:var(--accent4);color:var(--accent4)">
+          <span class="label" style="color:var(--text-dim)">Objective:</span>
+          min_δ J(f(x+δ), y_target)<br>
+          subject to ‖δ‖ ≤ ε
+        </div>
+        <p style="font-size:13px;color:var(--text-dim)">Critical for high-stakes: make a stop sign look like a speed limit sign at a specific value.</p>
+      </div>
+    </div>
+
+    <!-- Timing Based -->
+    <div class="attack-grid">
+      <div class="attack-card">
+        <span class="attack-badge">INFERENCE-TIME</span>
+        <h3>Evasion Attacks</h3>
+        <p>Attack occurs after training is complete. The model weights are fixed; only the input is manipulated to evade detection or change prediction. Most common attack scenario.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          STAGE: Deployment → Attack → Wrong Output
+        </div>
+      </div>
+
+      <div class="attack-card red">
+        <span class="attack-badge red">TRAINING-TIME</span>
+        <h3>Poisoning Attacks</h3>
+        <p>Malicious data is injected into the training set before or during training. The resulting model has a backdoor or degraded performance on targeted inputs.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          STAGE: Data Collection → Poison → Train → Deploy
+        </div>
+      </div>
+
+      <div class="attack-card gold">
+        <span class="attack-badge gold">BACKDOOR</span>
+        <h3>Trojan Attacks</h3>
+        <p>A special case of poisoning where the model behaves normally on clean inputs but outputs a target class when a specific trigger pattern (e.g., a pixel patch) is present.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          TRIGGER: Small patch → Always predict: "TARGET"
+        </div>
+      </div>
+
+      <div class="attack-card purple">
+        <span class="attack-badge purple">PHYSICAL</span>
+        <h3>Physical-World Attacks</h3>
+        <p>Adversarial perturbations applied in the physical domain — printed patches, adversarial glasses, stop sign stickers — that survive camera capture and preprocessing.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          EXAMPLE: Adversarial patch on shirt evades person detection
+        </div>
+      </div>
+
+      <div class="attack-card">
+        <span class="attack-badge">QUERY-FREE</span>
+        <h3>Transfer Attacks</h3>
+        <p>Adversarial examples crafted on a surrogate model often transfer to other models. Exploits the observation that different models learn similar decision boundaries.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          Surrogate → Adv. Example → Target Model
+        </div>
+      </div>
+
+      <div class="attack-card red">
+        <span class="attack-badge red">MODEL</span>
+        <h3>Model Extraction</h3>
+        <p>Query the target model to reconstruct a functional copy. The extracted model can then be used as a white-box surrogate for crafting more effective adversarial examples.</p>
+        <div style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim)">
+          Queries + Labels → Surrogate Clone
+        </div>
+      </div>
+    </div>
+
+    <!-- Norm-based comparison -->
+    <div class="card">
+      <div class="card-title">Perturbation Norm Comparison</div>
+      <table class="eps-table">
+        <thead>
+          <tr>
+            <th>Norm</th>
+            <th>Definition</th>
+            <th>Meaning</th>
+            <th>Use Case</th>
+            <th>Difficulty</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>L∞</td>
+            <td>max|δᵢ|</td>
+            <td>Max pixel change</td>
+            <td>FGSM, PGD</td>
+            <td><span class="tag tag-green">Easy</span></td>
+          </tr>
+          <tr>
+            <td>L₂</td>
+            <td>√(Σδᵢ²)</td>
+            <td>Euclidean distance</td>
+            <td>C&W, DeepFool</td>
+            <td><span class="tag tag-gold">Medium</span></td>
+          </tr>
+          <tr>
+            <td>L₁</td>
+            <td>Σ|δᵢ|</td>
+            <td>Total absolute change</td>
+            <td>SparseFool</td>
+            <td><span class="tag tag-gold">Medium</span></td>
+          </tr>
+          <tr>
+            <td>L₀</td>
+            <td>‖δ‖₀ (count)</td>
+            <td>Pixels changed</td>
+            <td>One-pixel attack</td>
+            <td><span class="tag tag-red">Hard</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ===================== METHODS & MATH ===================== -->
+  <div id="tab-methods" class="tab-content">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <h2>Mathematical Foundations & Attack Methods</h2>
+      </div>
+      <p>Each attack method defines a specific optimization problem over the perturbation δ, constrained by a norm ball. The key insight is that neural network loss surfaces have locally linear behavior that can be exploited.</p>
+    </div>
+
+    <!-- FGSM -->
+    <div class="card">
+      <div class="card-title">FGSM — Fast Gradient Sign Method</div>
+      <div class="grid-2">
+        <div>
+          <p style="font-size:14px;margin-bottom:12px">Proposed by Goodfellow et al. (2015). Exploits the <span class="highlight">linearity hypothesis</span>: the loss function is approximately linear in the input, so the steepest increase in loss is along the sign of the gradient.</p>
+          <p style="font-size:14px;margin-bottom:12px">A <strong>single gradient step</strong> in the sign direction. Fast, but suboptimal. The sign operation ensures every pixel moves by exactly ε in the worst direction.</p>
+          <p style="font-size:14px"><span style="color:var(--accent3)">Strength:</span> Computationally trivial (one forward + backward pass)<br>
+          <span style="color:var(--accent2)">Weakness:</span> Single step; easily defended by robust training</p>
+        </div>
+        <div>
+          <div class="math-block">
+            <span class="label">FGSM Update Rule:</span>
+            x_adv = x + ε · sign(∇ₓ J(θ, x, y))
+          </div>
+          <div class="math-block">
+            <span class="label">Gradient Computation:</span>
+            ∇ₓ J = ∂L(f(x;θ), y) / ∂x
+          </div>
+          <div style="padding:12px;background:rgba(0,245,212,0.05);border-radius:6px;font-size:13px;color:var(--text-dim)">
+            <div style="color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:11px;margin-bottom:6px">PARAMETERS</div>
+            ε = perturbation budget (L∞)<br>
+            J = cross-entropy loss<br>
+            θ = fixed model weights<br>
+            sign() = sign of each gradient element
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PGD -->
+    <div class="card red">
+      <div class="card-title">PGD — Projected Gradient Descent</div>
+      <div class="grid-2">
+        <div>
+          <p style="font-size:14px;margin-bottom:12px">Madry et al. (2018) extended FGSM to <span class="highlight-red">multiple iterative steps</span>, projecting back onto the L∞ ball after each step. Considered the <strong>strongest first-order attack</strong>.</p>
+          <p style="font-size:14px;margin-bottom:12px">PGD is essentially repeated FGSM with a smaller step size α, with random initialization within the ε-ball. The projection Π ensures we stay within budget.</p>
+          <p style="font-size:14px"><span style="color:var(--accent3)">Strength:</span> Finds near-optimal adversarial examples; used as gold-standard evaluation<br>
+          <span style="color:var(--accent2)">Weakness:</span> Expensive (K forward/backward passes)</p>
+        </div>
+        <div>
+          <div class="math-block red">
+            <span class="label">PGD Iteration (k steps):</span>
+            x⁰ = x + Uniform(-ε, ε)<br><br>
+            xᵗ⁺¹ = Πε(xᵗ + α · sign(∇ₓ J(θ, xᵗ, y)))
+          </div>
+          <div class="math-block red">
+            <span class="label">Projection onto L∞ Ball:</span>
+            Πε(x') = clip(x', x-ε, x+ε)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C&W -->
+    <div class="card gold">
+      <div class="card-title">C&W Attack — Carlini & Wagner (2017)</div>
+      <div class="grid-2">
+        <div>
+          <p style="font-size:14px;margin-bottom:12px">Formulates adversarial example generation as an <span style="color:var(--accent3)">optimization problem with a custom objective</span> that avoids the cross-entropy pitfall of saturation near zero loss.</p>
+          <p style="font-size:14px;margin-bottom:12px">Uses a change of variable w = tanh⁻¹(2x - 1) to naturally enforce [0,1] pixel bounds, avoiding explicit box constraints. Iterates with Adam optimizer.</p>
+          <p style="font-size:14px"><span style="color:var(--accent3)">Strength:</span> Finds minimum-norm adversarial examples; breaks many defenses<br>
+          <span style="color:var(--accent2)">Weakness:</span> Very slow; requires many optimizer iterations</p>
+        </div>
+        <div>
+          <div class="math-block" style="border-color:var(--accent3);color:var(--accent3)">
+            <span class="label">C&W Objective (L2):</span>
+            min_δ ‖δ‖₂² + c · f(x + δ)
+          </div>
+          <div class="math-block" style="border-color:var(--accent3);color:var(--accent3)">
+            <span class="label">Adversarial Objective f:</span>
+            f(x') = max(Z(x')[y_true] - max_{j≠y} Z(x')[j], -κ)
+          </div>
+          <div style="padding:12px;background:rgba(245,166,35,0.05);border-radius:6px;font-size:13px;color:var(--text-dim)">
+            Z(x') = logit outputs | κ = confidence margin | c = tradeoff constant
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DeepFool -->
+    <div class="card purple">
+      <div class="card-title">DeepFool — Minimum-Norm Perturbation</div>
+      <div class="grid-2">
+        <div>
+          <p style="font-size:14px;margin-bottom:12px">Moosavi-Dezfooli et al. (2016). Finds the <span style="color:var(--accent4)">minimum L₂ perturbation</span> needed to cross the decision boundary by iteratively linearizing the classifier and computing the exact distance to the nearest hyperplane boundary.</p>
+          <p style="font-size:14px"><span style="color:var(--accent3)">Strength:</span> Near-minimal perturbation; great for measuring model robustness<br>
+          <span style="color:var(--accent2)">Weakness:</span> Iterative; may not converge for highly nonlinear models</p>
+        </div>
+        <div>
+          <div class="math-block" style="border-color:var(--accent4);color:var(--accent4)">
+            <span class="label">Affine Approximation at xᵗ:</span>
+            Δxᵗ = - f_k(xᵗ)/‖∇f_k(xᵗ)‖₂² · ∇f_k(xᵗ)
+          </div>
+          <div class="math-block" style="border-color:var(--accent4);color:var(--accent4)">
+            <span class="label">Nearest Boundary Class k*:</span>
+            k* = argmin_{k≠ŷ} |f_k(xᵗ)| / ‖∇f_k(xᵗ)‖₂
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Universal Perturbations -->
+    <div class="card">
+      <div class="card-title">Universal Adversarial Perturbations (UAP)</div>
+      <div class="grid-2">
+        <div>
+          <p style="font-size:14px;margin-bottom:12px">Moosavi-Dezfooli et al. (2017). A <span class="highlight">single universal perturbation</span> that causes misclassification for most images in a dataset — input-agnostic.</p>
+          <p style="font-size:14px">The UAP exploits the geometric structure of the decision boundaries. By iterating over data points and aggregating DeepFool perturbations, a common direction is found.</p>
+        </div>
+        <div>
+          <div class="math-block">
+            <span class="label">UAP Objective:</span>
+            P(f(x + v) ≠ f(x)) ≥ 1 - δ<br><br>
+            subject to ‖v‖ₚ ≤ ξ
+          </div>
+          <div style="padding:12px;background:rgba(0,245,212,0.05);border-radius:6px;font-size:13px;color:var(--text-dim)">
+            v = universal perturbation | δ = desired fooling rate | ξ = perturbation budget. A single v fools any image with probability ≥ (1-δ).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loss Landscape -->
+    <div class="card gold">
+      <div class="card-title">Loss Landscape Intuition</div>
+      <canvas id="lossLandscape" width="700" height="220" style="width:100%;border-radius:8px;display:block"></canvas>
+      <p style="font-size:13px;color:var(--text-dim);text-align:center;margin-top:8px">
+        Schematic of cross-entropy loss as a function of perturbation magnitude. Clean input (center), adversarial region (right of dashed line), and the gradient direction.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- ===================== DEFENSE ===================== -->
+  <div id="tab-defense" class="tab-content">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <h2>Robustness Enhancement & Defense</h2>
+      </div>
+      <p>Defending against adversarial attacks is an active arms race. Defenses fall into several categories: <span class="highlight">proactive</span> (model hardening), <span class="highlight">reactive</span> (input preprocessing), and <span class="highlight">detection</span> (identify adversarial inputs).</p>
+    </div>
+
+    <!-- Defense Categories -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Adversarial Training</div>
+        <p style="font-size:14px;margin-bottom:12px"><strong>Strongest known defense.</strong> Augment the training set with adversarial examples during training. The model learns to be robust to adversarial perturbations by solving a min-max optimization.</p>
+        <div class="math-block">
+          <span class="label">Madry's Adversarial Training:</span>
+          min_θ E_(x,y)~D [ max_{δ:‖δ‖≤ε} J(θ, x+δ, y) ]
+        </div>
+        <div style="font-size:13px;color:var(--text-dim)">
+          <span style="color:var(--accent3)">Inner max:</span> Find the worst-case perturbation (PGD)<br>
+          <span style="color:var(--accent3)">Outer min:</span> Minimize loss on worst-case inputs<br>
+          <span style="color:var(--accent2)">Cost:</span> 3-10× more compute; slight drop in clean accuracy
+        </div>
+      </div>
+
+      <div class="card red">
+        <div class="card-title">Certified Defenses</div>
+        <p style="font-size:14px;margin-bottom:12px"><span class="highlight-red">Provable robustness</span> within an ε-ball. Instead of empirical adversarial training, these methods provide mathematical certificates that no perturbation within budget can change the prediction.</p>
+        <div style="padding:14px;background:rgba(255,56,100,0.05);border-radius:6px;margin-bottom:12px">
+          <ul style="list-style:none;font-size:14px;color:var(--text-dim)">
+            <li style="padding:4px 0">▸ <strong style="color:var(--text)">Randomized Smoothing:</strong> Output class is certified for all ‖δ‖₂ ≤ R</li>
+            <li style="padding:4px 0">▸ <strong style="color:var(--text)">IBP (Interval Bound Propagation):</strong> Propagate input bounds through layers</li>
+            <li style="padding:4px 0">▸ <strong style="color:var(--text)">Lipschitz Constraints:</strong> Bound sensitivity via spectral normalization</li>
+          </ul>
+        </div>
+        <div class="math-block red">
+          <span class="label">Randomized Smoothing Certificate:</span>
+          P(g(x+ε) = c) ≥ p_A<br>
+          Certified radius: R = σ/2 · (Φ⁻¹(p_A) - Φ⁻¹(p_B))
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Preprocessing -->
+    <div class="card gold">
+      <div class="card-title">Input Transformation Defenses</div>
+      <p style="font-size:14px;margin-bottom:16px">Apply transformations to inputs before feeding them to the model. These aim to destroy adversarial perturbations while preserving semantic content. However, many are broken by adaptive attacks that account for the transformation.</p>
+      <div class="defense-grid">
+        <div class="defense-item">
+          <h4>Feature Squeezing</h4>
+          <p>Reduce bit-depth or apply spatial smoothing. Compare model output on original vs. squeezed input — large divergence indicates adversarial input.</p>
+        </div>
+        <div class="defense-item">
+          <h4>JPEG Compression</h4>
+          <p>High-frequency perturbations are removed by JPEG quantization. Effective against L∞-small perturbations but can hurt clean accuracy.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Input Randomization</h4>
+          <p>Randomly resize and pad inputs before classification. Disrupts gradient-based attacks by introducing stochasticity in the pipeline.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Pixel Deflection</h4>
+          <p>Randomly replace a subset of pixels with adjacent pixel values, then apply wavelet denoising. Destroys structured perturbation patterns.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Neural Purification</h4>
+          <p>Use a denoiser (e.g., diffusion model) to project adversarial input back onto the clean data manifold before classification.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Adversarial Denoising</h4>
+          <p>Train a denoising autoencoder specifically to remove adversarial perturbations. Output is a cleaned version passed to the classifier.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Architectural -->
+    <div class="card purple">
+      <div class="card-title">Architectural & Training Strategies</div>
+      <div class="defense-grid">
+        <div class="defense-item">
+          <h4>Distillation</h4>
+          <p>Train a student model on soft labels from a teacher. Defensive distillation (Papernot 2016) reduces gradient magnitude, though largely broken by C&W attacks.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Spectral Normalization</h4>
+          <p>Constrain the Lipschitz constant of each layer by normalizing the spectral norm of weight matrices. Bounds model sensitivity to input perturbations.</p>
+        </div>
+        <div class="defense-item">
+          <h4>Ensemble Methods</h4>
+          <p>Combine predictions from multiple diverse models. Adversarial examples that fool one model are less likely to fool all models simultaneously.</p>
+        </div>
+        <div class="defense-item">
+          <h4>TRADES</h4>
+          <p>Trade-off-inspired Adversarial Defense via Surrogate-loss minimization. Adds a regularization term that explicitly trades clean accuracy for robustness.</p>
+        </div>
+      </div>
+      <div class="math-block" style="border-color:var(--accent4);color:var(--accent4)">
+        <span class="label">TRADES Objective:</span>
+        min_f E[L(f(x), y)] + β · E[ max_{‖δ‖≤ε} KL(f(x+δ) ‖ f(x)) ]
+      </div>
+    </div>
+
+    <!-- Arms Race Chart -->
+    <div class="card">
+      <div class="card-title">Defense Robustness Comparison</div>
+      <p style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Approximate robust accuracy under PGD-20 attack (L∞, ε=8/255) on CIFAR-10. Higher is better.</p>
+      <div id="barChart" style="margin:8px 0"></div>
+    </div>
+
+  </div>
+
+  <!-- ===================== INTERACTIVE ===================== -->
+  <div id="tab-interactive" class="tab-content">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <h2>Interactive Visualization</h2>
+      </div>
+      <p>Explore how different perturbation budgets and attack methods affect the visual appearance and classifier confidence.</p>
+    </div>
+
+    <!-- Perturbation Demo -->
+    <div class="card red">
+      <div class="card-title">FGSM Perturbation Simulator</div>
+      <div class="slider-section">
+        <div style="display:flex;gap:32px;flex-wrap:wrap;margin-bottom:16px">
+          <div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim);margin-bottom:6px">PERTURBATION BUDGET (ε)</div>
+            <div class="slider-row">
+              <input type="range" id="epsSlider" min="0" max="100" value="10" oninput="updateViz()">
+              <div class="slider-val" id="epsVal">0.10</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim);margin-bottom:6px">ITERATIONS (PGD)</div>
+            <div class="slider-row">
+              <input type="range" id="iterSlider" min="1" max="40" value="1" oninput="updateViz()">
+              <div class="slider-val" id="iterVal">1</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:center">
+          <div style="text-align:center">
+            <canvas id="interactClean" width="160" height="160" style="border-radius:8px;border:2px solid var(--border)"></canvas>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:6px">CLEAN INPUT</div>
+          </div>
+          <div style="text-align:center">
+            <canvas id="interactPerturb" width="160" height="160" style="border-radius:8px;border:2px solid #ff3864"></canvas>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:6px">PERTURBATION (×20)</div>
+          </div>
+          <div style="text-align:center">
+            <canvas id="interactAdv" width="160" height="160" style="border-radius:8px;border:2px solid #ff3864"></canvas>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:6px">ADVERSARIAL</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+        <div style="padding:16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:8px">CLEAN CONFIDENCE</div>
+          <div id="cleanConf" style="font-family:'Share Tech Mono',monospace;font-size:24px;color:var(--accent)">98.3%</div>
+          <div style="font-size:13px;color:var(--text-dim);margin-top:4px">Predicted: <span style="color:var(--accent)">Cat</span></div>
+        </div>
+        <div style="padding:16px;background:var(--surface2);border-radius:8px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:8px">ADV CONFIDENCE</div>
+          <div id="advConf" style="font-family:'Share Tech Mono',monospace;font-size:24px;color:var(--accent2)">98.3%</div>
+          <div style="font-size:13px;color:var(--text-dim);margin-top:4px">Predicted: <span id="advClass" style="color:var(--accent2)">Cat</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision Boundary -->
+    <div class="card gold">
+      <div class="card-title">Decision Boundary Visualization (2D)</div>
+      <canvas id="decisionBound" width="700" height="320" style="width:100%;border-radius:8px;display:block"></canvas>
+      <p style="font-size:13px;color:var(--text-dim);text-align:center;margin-top:8px">Simplified 2D projection showing clean samples (circles), adversarial examples (×), and the nonlinear decision boundary. Arrows indicate gradient direction.</p>
+    </div>
+
+    <!-- Norm Comparison -->
+    <div class="card purple">
+      <div class="card-title">Perturbation Norm Comparison (Same ε)</div>
+      <canvas id="normCompare" width="700" height="200" style="width:100%;border-radius:8px;display:block"></canvas>
+      <p style="font-size:13px;color:var(--text-dim);text-align:center;margin-top:8px">
+        L∞: uniform small changes | L₂: smooth concentrated | L₀: few large changes
+      </p>
+    </div>
+
+  </div>
+
+  <!-- ===================== NOTES ===================== -->
+  <div id="tab-notes" class="tab-content">
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <h2>Quick Reference Notes</h2>
+      </div>
+      <p>Condensed reference covering key formulas, definitions, attack types, and defense strategies for fast review.</p>
+    </div>
+
+    <div class="notes-grid">
+      <div class="note-block">
+        <h4>Core Definitions</h4>
+        <ul>
+          <li>Adversarial example: input x' = x + δ where f(x') ≠ f(x) but ‖δ‖ ≤ ε</li>
+          <li>Perturbation budget ε: maximum allowed distortion</li>
+          <li>Threat model: defines adversary's knowledge, goal, and budget</li>
+          <li>Transferability: adversarial examples generalize across models</li>
+          <li>Fooling rate: % inputs misclassified under a given attack</li>
+          <li>Robust accuracy: accuracy under worst-case attack</li>
+        </ul>
+      </div>
+
+      <div class="note-block red">
+        <h4>Key Attack Formulas</h4>
+        <ul>
+          <li>FGSM: x' = x + ε·sign(∇ₓJ(θ,x,y))</li>
+          <li>PGD: xᵗ⁺¹ = Πε(xᵗ + α·sign(∇ₓJ)) with random init</li>
+          <li>C&W: min ‖δ‖₂ + c·f(x+δ), f based on logit margin</li>
+          <li>DeepFool: step toward nearest decision hyperplane</li>
+          <li>UAP: find v such that P(f(x+v)≠f(x)) ≥ 1−δ for all x</li>
+          <li>BIM/I-FGSM: iterative FGSM with clip after each step</li>
+        </ul>
+      </div>
+
+      <div class="note-block gold">
+        <h4>Attack Taxonomy</h4>
+        <ul>
+          <li>White-box: full model access (arch, weights, gradients)</li>
+          <li>Black-box: only query access; use transfer or score-based</li>
+          <li>Untargeted: any wrong prediction is success</li>
+          <li>Targeted: force specific incorrect class</li>
+          <li>Evasion: attack at inference time (most common)</li>
+          <li>Poisoning: corrupt training data; backdoor/trojan attacks</li>
+          <li>Physical: adversarial patches that survive real-world capture</li>
+        </ul>
+      </div>
+
+      <div class="note-block purple">
+        <h4>Defense Strategies</h4>
+        <ul>
+          <li>Adversarial training (Madry): min-max optimization; strongest empirical defense</li>
+          <li>TRADES: explicit clean vs. robust accuracy tradeoff</li>
+          <li>Randomized smoothing: certified L₂ robustness via Gaussian noise</li>
+          <li>IBP: interval bound propagation for certified robustness</li>
+          <li>Feature squeezing: compare squeezed vs. original output</li>
+          <li>Input preprocessing: JPEG, randomization, denoising</li>
+          <li>Spectral norm: bound Lipschitz constant of network layers</li>
+        </ul>
+      </div>
+
+      <div class="note-block">
+        <h4>Important Papers</h4>
+        <ul>
+          <li>Szegedy 2013 — First adversarial examples (L-BFGS)</li>
+          <li>Goodfellow 2015 — FGSM + linear hypothesis (ICLR 2015)</li>
+          <li>Papernot 2016 — Defensive distillation (S&P 2016)</li>
+          <li>Madry 2018 — PGD attack + adversarial training (ICLR 2018)</li>
+          <li>Carlini & Wagner 2017 — C&W attack; breaks most defenses</li>
+          <li>Cohen 2019 — Certified robustness via randomized smoothing</li>
+          <li>Zhang 2019 — TRADES: clean/robust tradeoff theorem</li>
+        </ul>
+      </div>
+
+      <div class="note-block red">
+        <h4>Evaluation Checklist</h4>
+        <ul>
+          <li>Always use adaptive attacks (account for defense in attack)</li>
+          <li>Report both clean accuracy and robust accuracy</li>
+          <li>Evaluate under multiple norms (L∞, L₂) and ε values</li>
+          <li>Use PGD with enough iterations (≥20) as baseline</li>
+          <li>Check AutoAttack (Croce 2020) for reliable evaluation</li>
+          <li>Avoid "security through obscurity" — gradient masking is not defense</li>
+          <li>RobustBench (robustbench.github.io) for standardized comparison</li>
+        </ul>
+      </div>
+
+      <div class="note-block gold">
+        <h4>Common Pitfalls</h4>
+        <ul>
+          <li>Gradient masking: model obfuscates gradients but isn't truly robust</li>
+          <li>Broken baselines: many defenses fail under adaptive/white-box attacks</li>
+          <li>Overfitting to specific ε: robust at ε=8 doesn't mean robust at ε=16</li>
+          <li>Clean accuracy vs. robust accuracy tradeoff is fundamental (not just tuning)</li>
+          <li>Standard PGD may not be sufficient; use AutoAttack for honest evaluation</li>
+          <li>Transfer doesn't always work: need sufficient surrogate model similarity</li>
+        </ul>
+      </div>
+
+      <div class="note-block purple">
+        <h4>Real-World Concerns</h4>
+        <ul>
+          <li>Autonomous driving: stop sign → speed limit sign attacks</li>
+          <li>Face recognition: adversarial glasses fool commercial systems</li>
+          <li>Medical imaging: adversarial X-rays misdiagnosed by AI</li>
+          <li>NLP: adversarial text via synonym replacement or character attacks</li>
+          <li>Malware detection: adversarial perturbations on binary features</li>
+          <li>Physical adversarial patches effective in real cameras at multiple angles</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Full formula reference -->
+    <div class="card" style="margin-top:24px">
+      <div class="card-title">Formula Quick Reference</div>
+      <div class="grid-2">
+        <div>
+          <div class="math-block">
+            <span class="label">L∞ norm constraint:</span>
+            ‖x_adv - x‖∞ = max_i |x_adv_i - x_i| ≤ ε
+          </div>
+          <div class="math-block">
+            <span class="label">L₂ norm constraint:</span>
+            ‖x_adv - x‖₂ = √(Σᵢ(x_adv_i - xᵢ)²) ≤ ε
+          </div>
+          <div class="math-block red">
+            <span class="label">FGSM:</span>
+            x' = x + ε · sign(∇ₓ L(f(x;θ), y))
+          </div>
+        </div>
+        <div>
+          <div class="math-block red">
+            <span class="label">PGD (k iterations, step α):</span>
+            x⁰ ~ Unif(Bε(x)) <br>
+            xᵗ⁺¹ = Πε(xᵗ + α · sign(∇ₓ L(xᵗ,y)))
+          </div>
+          <div class="math-block" style="border-color:var(--accent3);color:var(--accent3)">
+            <span class="label">Adversarial Training (Madry):</span>
+            θ* = argmin_θ E[max_δ L(fθ(x+δ), y)]
+          </div>
+          <div class="math-block" style="border-color:var(--accent4);color:var(--accent4)">
+            <span class="label">TRADES:</span>
+            L_cls(f(x),y) + β·KL(f(x+δ)‖f(x))
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<footer>
+  <div class="container">
+    BIOE 486 / 484 — Adversarial Attacks in Deep Learning &nbsp;·&nbsp; Built with ♦ for educational use
+  </div>
+</footer>
+
+<script>
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'interactive') { setTimeout(drawAll, 100); }
+  if (id === 'methods') { setTimeout(drawLossLandscape, 100); }
+  if (id === 'defense') { setTimeout(drawBarChart, 100); }
+  if (id === 'foundations') { setTimeout(() => { drawCleanImg(); drawPerturbImg(); drawAdvImg(); }, 100); }
+}
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+function hexToRgb(hex, a=1) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ============================================================
+// FOUNDATIONS: PANDA DEMO CANVASES
+// ============================================================
+function drawPandaShape(ctx, w, h) {
+  ctx.fillStyle = '#fff';
+  // body
+  ctx.beginPath(); ctx.ellipse(w/2, h*0.62, w*0.32, h*0.28, 0, 0, Math.PI*2); ctx.fill();
+  // head
+  ctx.beginPath(); ctx.ellipse(w/2, h*0.33, w*0.26, h*0.22, 0, 0, Math.PI*2); ctx.fill();
+  // ears
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.ellipse(w*0.3, h*0.14, w*0.09, h*0.09, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.7, h*0.14, w*0.09, h*0.09, 0, 0, Math.PI*2); ctx.fill();
+  // eye patches
+  ctx.beginPath(); ctx.ellipse(w*0.38, h*0.31, w*0.07, h*0.07, -0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.62, h*0.31, w*0.07, h*0.07, 0.3, 0, Math.PI*2); ctx.fill();
+  // eyes
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(w*0.38, h*0.31, w*0.03, h*0.03, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.62, h*0.31, w*0.03, h*0.03, 0, 0, Math.PI*2); ctx.fill();
+  // nose
+  ctx.fillStyle = '#555';
+  ctx.beginPath(); ctx.ellipse(w*0.5, h*0.38, w*0.04, h*0.025, 0, 0, Math.PI*2); ctx.fill();
+  // legs
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.ellipse(w*0.35, h*0.85, w*0.1, h*0.1, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.65, h*0.85, w*0.1, h*0.1, 0, 0, Math.PI*2); ctx.fill();
+}
+
+function seedNoise(seed) {
+  // Simple seeded pseudo-random for reproducible noise
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+function drawCleanImg() {
+  const c = document.getElementById('cleanImg');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  // Bamboo background
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, '#1a2a10');
+  grad.addColorStop(1, '#0d1a08');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,w,h);
+  drawPandaShape(ctx, w, h);
+}
+
+function drawPerturbImg() {
+  const c = document.getElementById('perturbImg');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  ctx.fillStyle = '#080808';
+  ctx.fillRect(0,0,w,h);
+  // Structured gradient noise
+  const rng = seedNoise(42);
+  const imgData = ctx.createImageData(w, h);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const px = Math.floor((i/4) % w);
+    const py = Math.floor((i/4) / w);
+    // gradient-sign like pattern
+    const val = ((Math.sin(px*0.8)*Math.cos(py*0.6) + rng()*0.3) > 0) ? 180 : 60;
+    imgData.data[i] = val; imgData.data[i+1] = val; imgData.data[i+2] = val; imgData.data[i+3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function drawAdvImg() {
+  const c = document.getElementById('advImg');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, '#1a2a10');
+  grad.addColorStop(1, '#0d1a08');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,w,h);
+
+  // Draw subtle noise over panda
+  const imgData = ctx.getImageData(0,0,w,h);
+  const rng = seedNoise(42);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const px = Math.floor((i/4) % w);
+    const py = Math.floor((i/4) / w);
+    const delta = ((Math.sin(px*0.8)*Math.cos(py*0.6) + rng()*0.3) > 0) ? 7 : -7;
+    imgData.data[i] = Math.max(0,Math.min(255,imgData.data[i]+delta));
+    imgData.data[i+1] = Math.max(0,Math.min(255,imgData.data[i+1]+delta));
+    imgData.data[i+2] = Math.max(0,Math.min(255,imgData.data[i+2]+delta));
+  }
+  ctx.putImageData(imgData, 0, 0);
+  drawPandaShape(ctx, w, h);
+
+  // Subtle red tint overlay
+  ctx.fillStyle = 'rgba(255,56,100,0.08)';
+  ctx.fillRect(0,0,w,h);
+}
+
+// ============================================================
+// LOSS LANDSCAPE
+// ============================================================
+function drawLossLandscape() {
+  const c = document.getElementById('lossLandscape');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H);
+
+  const margin = { left: 60, right: 20, top: 20, bottom: 40 };
+  const cw = W - margin.left - margin.right;
+  const ch = H - margin.top - margin.bottom;
+
+  ctx.save(); ctx.translate(margin.left, margin.top);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = ch - (i/5)*ch;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke();
+  }
+
+  // Loss curve (asymmetric - low at x=0, rises toward positive delta)
+  const loss = (t) => {
+    // Simulate loss landscape: bowl near 0, rises with adversarial direction
+    const clean = 0.08;
+    if (t < 0) return clean + 0.6 * t * t;
+    return clean + 0.3 * t + 1.2 * t * t + 0.8 * Math.sin(t * 3) * 0.05;
+  };
+
+  const xMin = -0.8, xMax = 1.5;
+  const lossMin = 0, lossMax = 1.2;
+
+  const tx = (x) => ((x - xMin) / (xMax - xMin)) * cw;
+  const ty = (l) => ch - ((l - lossMin) / (lossMax - lossMin)) * ch;
+
+  // Fill under curve
+  ctx.beginPath();
+  ctx.moveTo(tx(xMin), ty(loss(xMin)));
+  for (let x = xMin; x <= xMax; x += 0.02) {
+    ctx.lineTo(tx(x), ty(loss(x)));
+  }
+  ctx.lineTo(tx(xMax), ch);
+  ctx.lineTo(tx(xMin), ch);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,245,212,0.05)';
+  ctx.fill();
+
+  // Loss line
+  ctx.beginPath();
+  ctx.strokeStyle = '#00f5d4';
+  ctx.lineWidth = 2.5;
+  for (let x = xMin; x <= xMax; x += 0.01) {
+    const px = tx(x), py = ty(loss(x));
+    if (x === xMin) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Decision boundary line
+  const boundX = 0.55;
+  ctx.setLineDash([5,5]);
+  ctx.strokeStyle = 'rgba(255,56,100,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(tx(boundX), 0); ctx.lineTo(tx(boundX), ch); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Clean point
+  ctx.beginPath();
+  ctx.arc(tx(0), ty(loss(0)), 7, 0, Math.PI*2);
+  ctx.fillStyle = '#00f5d4';
+  ctx.fill();
+
+  // Adversarial point
+  ctx.beginPath();
+  ctx.arc(tx(0.65), ty(loss(0.65)), 7, 0, Math.PI*2);
+  ctx.fillStyle = '#ff3864';
+  ctx.fill();
+
+  // Arrow showing FGSM direction
+  ctx.strokeStyle = '#f5a623';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(tx(0.05), ty(loss(0.05)));
+  ctx.lineTo(tx(0.45), ty(loss(0.45)));
+  ctx.stroke();
+  // Arrowhead
+  ctx.fillStyle = '#f5a623';
+  ctx.beginPath();
+  const ax = tx(0.45), ay = ty(loss(0.45));
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax-12, ay-5);
+  ctx.lineTo(ax-10, ay+5);
+  ctx.closePath(); ctx.fill();
+
+  // Labels
+  ctx.fillStyle = '#00f5d4';
+  ctx.font = 'bold 12px "Share Tech Mono"';
+  ctx.fillText('clean x', tx(0) + 10, ty(loss(0)) - 10);
+
+  ctx.fillStyle = '#ff3864';
+  ctx.fillText('x_adv', tx(0.65) + 10, ty(loss(0.65)) - 10);
+
+  ctx.fillStyle = 'rgba(255,56,100,0.8)';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('decision', tx(boundX) + 6, 20);
+  ctx.fillText('boundary', tx(boundX) + 6, 34);
+
+  ctx.fillStyle = '#f5a623';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('FGSM step', tx(0.2), ty(0.55));
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0,ch); ctx.lineTo(cw,ch); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,ch); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '11px "Share Tech Mono"';
+  ctx.fillText('perturbation magnitude δ', cw/2 - 70, ch + 28);
+
+  ctx.save();
+  ctx.translate(-42, ch/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Loss J(θ, x+δ, y)', -40, 0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ============================================================
+// BAR CHART (Defense comparison)
+// ============================================================
+function drawBarChart() {
+  const container = document.getElementById('barChart');
+  if (!container) return;
+  container.innerHTML = '';
+  const data = [
+    { label: 'No Defense', val: 0, color: '#ff3864' },
+    { label: 'Distillation', val: 5, color: '#ff3864' },
+    { label: 'Feature Squeeze', val: 8, color: '#f5a623' },
+    { label: 'JPEG Defense', val: 12, color: '#f5a623' },
+    { label: 'Ensemble', val: 22, color: '#f5a623' },
+    { label: 'PGD Training (7)', val: 44, color: '#00f5d4' },
+    { label: 'TRADES (β=6)', val: 56, color: '#00f5d4' },
+    { label: 'Advanced AT', val: 63, color: '#00f5d4' },
+    { label: 'Clean Accuracy', val: 95, color: '#7b2fff' },
+  ];
+
+  data.forEach(d => {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="bar-label">${d.label}</div>
+      <div class="bar-track" style="flex:1">
+        <div class="bar-fill" style="width:${d.val}%;background:${d.color};box-shadow:0 0 8px ${d.color}44"></div>
+      </div>
+      <div class="bar-val" style="color:${d.color}">${d.val}%</div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// ============================================================
+// INTERACTIVE TAB
+// ============================================================
+function makeNoisyImage(ctx, w, h, eps, iter) {
+  const rng = seedNoise(99);
+  const imgData = ctx.createImageData(w, h);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const px = (i/4) % w;
+    const py = Math.floor((i/4)/w);
+    // Cat-like colors
+    const base = py < h*0.35 ? 60 : (py < h*0.65 ? 100 : 70);
+    imgData.data[i] = base + 30 + Math.round((rng()-0.5)*20);
+    imgData.data[i+1] = base + 20 + Math.round((rng()-0.5)*20);
+    imgData.data[i+2] = base + 10 + Math.round((rng()-0.5)*20);
+    imgData.data[i+3] = 255;
+  }
+  return imgData;
+}
+
+function drawCatShape(ctx, w, h) {
+  // Simple cat silhouette
+  ctx.fillStyle = '#c8a060';
+  ctx.beginPath(); ctx.ellipse(w/2, h*0.6, w*0.3, h*0.25, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w/2, h*0.38, w*0.22, h*0.2, 0, 0, Math.PI*2); ctx.fill();
+  // Ears
+  ctx.fillStyle = '#b8904a';
+  ctx.beginPath();
+  ctx.moveTo(w*0.32, h*0.22); ctx.lineTo(w*0.25, h*0.06); ctx.lineTo(w*0.42, h*0.2); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w*0.68, h*0.22); ctx.lineTo(w*0.75, h*0.06); ctx.lineTo(w*0.58, h*0.2); ctx.closePath(); ctx.fill();
+  // Eyes
+  ctx.fillStyle = '#2a8a4a';
+  ctx.beginPath(); ctx.ellipse(w*0.4, h*0.36, w*0.06, h*0.04, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.6, h*0.36, w*0.06, h*0.04, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(w*0.4, h*0.36, w*0.02, h*0.04, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(w*0.6, h*0.36, w*0.02, h*0.04, 0, 0, Math.PI*2); ctx.fill();
+  // Nose
+  ctx.fillStyle = '#e060a0';
+  ctx.beginPath(); ctx.arc(w/2, h*0.43, 3, 0, Math.PI*2); ctx.fill();
+  // Whiskers
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+  [[w*0.18,h*0.44,w*0.44,h*0.44],[w*0.18,h*0.47,w*0.44,h*0.46],
+   [w*0.56,h*0.44,w*0.82,h*0.44],[w*0.56,h*0.46,w*0.82,h*0.47]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  });
+}
+
+function updateViz() {
+  const eps = document.getElementById('epsSlider').value / 100;
+  const iter = parseInt(document.getElementById('iterSlider').value);
+  document.getElementById('epsVal').textContent = eps.toFixed(2);
+  document.getElementById('iterVal').textContent = iter;
+
+  // Clean canvas
+  const cleanC = document.getElementById('interactClean');
+  if (!cleanC) return;
+  const ctx1 = cleanC.getContext('2d');
+  const w = cleanC.width, h = cleanC.height;
+  const bg = ctx1.createLinearGradient(0,0,0,h);
+  bg.addColorStop(0,'#1a1210'); bg.addColorStop(1,'#0a0806');
+  ctx1.fillStyle = bg; ctx1.fillRect(0,0,w,h);
+  drawCatShape(ctx1, w, h);
+
+  // Perturbation canvas
+  const pertC = document.getElementById('interactPerturb');
+  const ctx2 = pertC.getContext('2d');
+  ctx2.fillStyle = '#060606'; ctx2.fillRect(0,0,w,h);
+  const rng = seedNoise(77 + iter);
+  const imgD = ctx2.createImageData(w,h);
+  for (let i = 0; i < imgD.data.length; i += 4) {
+    const px = (i/4)%w, py = Math.floor((i/4)/w);
+    const sign = (Math.sin(px*0.9 + iter*0.3)*Math.cos(py*0.7) > 0) ? 1 : -1;
+    const v = 128 + sign * Math.min(255, eps * 20 * iter * 40);
+    imgD.data[i] = Math.min(255,Math.max(0,v));
+    imgD.data[i+1] = Math.min(255,Math.max(0,v*0.8));
+    imgD.data[i+2] = Math.min(255,Math.max(0,v*0.6));
+    imgD.data[i+3] = 255;
+  }
+  ctx2.putImageData(imgD,0,0);
+
+  // Adversarial canvas
+  const advC = document.getElementById('interactAdv');
+  const ctx3 = advC.getContext('2d');
+  const bg3 = ctx3.createLinearGradient(0,0,0,h);
+  bg3.addColorStop(0,'#1a1210'); bg3.addColorStop(1,'#0a0806');
+  ctx3.fillStyle = bg3; ctx3.fillRect(0,0,w,h);
+  const imgD2 = ctx3.getImageData(0,0,w,h);
+  const rng2 = seedNoise(77 + iter);
+  for (let i = 0; i < imgD2.data.length; i += 4) {
+    const px = (i/4)%w, py = Math.floor((i/4)/w);
+    const sign = (Math.sin(px*0.9 + iter*0.3)*Math.cos(py*0.7) > 0) ? 1 : -1;
+    const delta = sign * Math.round(eps * 255 * Math.min(iter * 0.3, 1.0));
+    imgD2.data[i] = Math.min(255,Math.max(0,imgD2.data[i]+delta));
+    imgD2.data[i+1] = Math.min(255,Math.max(0,imgD2.data[i+1]+delta));
+    imgD2.data[i+2] = Math.min(255,Math.max(0,imgD2.data[i+2]+delta));
+  }
+  ctx3.putImageData(imgD2,0,0);
+  drawCatShape(ctx3, w, h);
+  if (eps > 0.15 || (eps > 0.05 && iter >= 10)) {
+    ctx3.fillStyle = `rgba(255,56,100,${Math.min(0.3, eps*iter*0.08)})`;
+    ctx3.fillRect(0,0,w,h);
+  }
+
+  // Update confidence readout
+  const attackStrength = Math.min(1, eps * iter * 3.5);
+  const advConf = (98.3 + (Math.random()-0.5)*2);
+  const classes = ['Dog','Truck','Airplane','Bird','Ship','Frog','Horse'];
+  const cls = attackStrength < 0.15 ? 'Cat' : classes[Math.floor(attackStrength * (classes.length-1))];
+  document.getElementById('advConf').textContent = advConf.toFixed(1) + '%';
+  document.getElementById('advConf').style.color = attackStrength > 0.15 ? 'var(--accent2)' : 'var(--accent)';
+  document.getElementById('advClass').textContent = cls;
+  document.getElementById('advClass').style.color = attackStrength > 0.15 ? 'var(--accent2)' : 'var(--accent)';
+}
+
+// ============================================================
+// DECISION BOUNDARY VIZ
+// ============================================================
+function drawDecisionBoundary() {
+  const c = document.getElementById('decisionBound');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.fillStyle = '#050810'; ctx.fillRect(0,0,W,H);
+
+  // Draw background class regions
+  const resolution = 4;
+  for (let x = 0; x < W; x += resolution) {
+    for (let y = 0; y < H; y += resolution) {
+      const nx = (x/W)*4 - 2, ny = (y/H)*4 - 2;
+      // Wavy nonlinear boundary
+      const boundary = Math.sin(nx*1.5)*0.6 + 0.3*Math.cos(nx*0.8) - ny*0.3;
+      if (boundary > 0) {
+        ctx.fillStyle = `rgba(0,245,212,0.04)`;
+      } else {
+        ctx.fillStyle = `rgba(255,56,100,0.04)`;
+      }
+      ctx.fillRect(x,y,resolution,resolution);
+    }
+  }
+
+  // Decision boundary curve
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4,4]);
+  for (let x = 0; x < W; x += 2) {
+    const nx = (x/W)*4 - 2;
+    // Find y where boundary = 0
+    const ny = (Math.sin(nx*1.5)*0.6 + 0.3*Math.cos(nx*0.8)) / 0.3;
+    const py = ((ny + 2) / 4) * H;
+    if (x === 0) ctx.moveTo(x, py);
+    else ctx.lineTo(x, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Clean data points (class A - teal)
+  const ptA = [
+    [0.25,0.25],[0.3,0.4],[0.2,0.35],[0.15,0.5],[0.35,0.3],[0.1,0.4],[0.4,0.45],[0.22,0.6],
+  ];
+  // Clean data points (class B - red)
+  const ptB = [
+    [0.65,0.55],[0.7,0.65],[0.8,0.5],[0.75,0.7],[0.85,0.6],[0.6,0.7],[0.9,0.55],[0.72,0.8],
+  ];
+
+  ptA.forEach(([px,py]) => {
+    ctx.beginPath();
+    ctx.arc(px*W, py*H, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#00f5d4';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,245,212,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  ptB.forEach(([px,py]) => {
+    ctx.beginPath();
+    ctx.arc(px*W, py*H, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#ff3864';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,56,100,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Adversarial examples (crosses, near boundary)
+  const advPts = [[0.5, 0.44],[0.48,0.5],[0.52,0.48]];
+  advPts.forEach(([px,py]) => {
+    const x = px*W, y = py*H;
+    ctx.strokeStyle = '#f5a623';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x-7,y-7); ctx.lineTo(x+7,y+7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+7,y-7); ctx.lineTo(x-7,y+7); ctx.stroke();
+  });
+
+  // Arrow showing adversarial direction from a clean point
+  const src = [ptA[0][0]*W, ptA[0][1]*H];
+  const dst = [advPts[0][0]*W, advPts[0][1]*H];
+  ctx.strokeStyle = 'rgba(245,166,35,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(src[0], src[1]); ctx.lineTo(dst[0], dst[1]); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Legend
+  const legX = W - 160, legY = 16;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(legX-8, legY-8, 155, 90);
+
+  ctx.beginPath(); ctx.arc(legX+8, legY+8, 6, 0, Math.PI*2);
+  ctx.fillStyle = '#00f5d4'; ctx.fill();
+  ctx.fillStyle = '#c8d6f0'; ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('Class A (clean)', legX+20, legY+13);
+
+  ctx.beginPath(); ctx.arc(legX+8, legY+30, 6, 0, Math.PI*2);
+  ctx.fillStyle = '#ff3864'; ctx.fill();
+  ctx.fillText('Class B (clean)', legX+20, legY+35);
+
+  ctx.strokeStyle = '#f5a623'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(legX+3,legY+50); ctx.lineTo(legX+13,legY+60); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(legX+13,legY+50); ctx.lineTo(legX+3,legY+60); ctx.stroke();
+  ctx.fillStyle = '#c8d6f0'; ctx.font = '12px "Share Tech Mono"';
+  ctx.fillText('Adversarial (×)', legX+20, legY+58);
+}
+
+// ============================================================
+// NORM COMPARISON
+// ============================================================
+function drawNormCompare() {
+  const c = document.getElementById('normCompare');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.fillStyle = '#050810'; ctx.fillRect(0,0,W,H);
+
+  const panels = [
+    { label: 'L∞ Attack', color: '#00f5d4', desc: 'Every pixel shifted by ≤ ε', x: 0 },
+    { label: 'L₂ Attack', color: '#f5a623', desc: 'Smooth Euclidean distortion', x: W/3 },
+    { label: 'L₀ Attack', color: '#ff3864', desc: 'Few pixels changed drastically', x: 2*W/3 },
+  ];
+
+  const rng = seedNoise(55);
+  const pw = W/3, ph = H;
+
+  panels.forEach((p, pi) => {
+    const ox = p.x;
+    // Panel background
+    ctx.fillStyle = `rgba(255,255,255,0.02)`;
+    ctx.fillRect(ox+4, 4, pw-8, ph-8);
+
+    const imgW = 80, imgH = 80;
+    const imgX = ox + pw/2 - imgW/2;
+    const imgY = 40;
+
+    // Base image
+    const imgData = ctx.createImageData(imgW, imgH);
+    const rng2 = seedNoise(123);
+    for (let i = 0; i < imgData.data.length; i+=4) {
+      const px2 = (i/4)%imgW, py2 = Math.floor((i/4)/imgW);
+      const b = py2 < imgH/2 ? 80 : 40;
+      imgData.data[i] = b + rng2()*30;
+      imgData.data[i+1] = b*0.8 + rng2()*20;
+      imgData.data[i+2] = b*0.5 + rng2()*10;
+      imgData.data[i+3] = 255;
+    }
+
+    // Apply per-norm perturbation
+    const pertData = new Uint8ClampedArray(imgData.data);
+    const rng3 = seedNoise(77 + pi);
+    if (pi === 0) { // L∞: small uniform
+      for (let i = 0; i < pertData.length; i+=4) {
+        const v = rng3() > 0.5 ? 18 : -18;
+        pertData[i] = Math.min(255,Math.max(0,pertData[i]+v));
+        pertData[i+1] = Math.min(255,Math.max(0,pertData[i+1]+v));
+        pertData[i+2] = Math.min(255,Math.max(0,pertData[i+2]+v));
+      }
+    } else if (pi === 1) { // L₂: smooth gradient
+      for (let i = 0; i < pertData.length; i+=4) {
+        const px3 = (i/4)%imgW, py3 = Math.floor((i/4)/imgW);
+        const v = Math.sin(px3/imgW*Math.PI)*Math.cos(py3/imgH*Math.PI)*60;
+        pertData[i] = Math.min(255,Math.max(0,pertData[i]+v));
+        pertData[i+1] = Math.min(255,Math.max(0,pertData[i+1]+v));
+        pertData[i+2] = Math.min(255,Math.max(0,pertData[i+2]+v));
+      }
+    } else { // L₀: few large changes
+      const nPixels = 40;
+      for (let j = 0; j < nPixels; j++) {
+        const idx = Math.floor(rng3()*(imgW*imgH))*4;
+        const v = rng3() > 0.5 ? 200 : -200;
+        pertData[idx] = Math.min(255,Math.max(0,pertData[idx]+v));
+        pertData[idx+1] = Math.min(255,Math.max(0,pertData[idx+1]+v));
+        pertData[idx+2] = Math.min(255,Math.max(0,pertData[idx+2]+v));
+      }
+    }
+
+    const advImg2 = new ImageData(pertData, imgW, imgH);
+    // Create temp canvas to put image data
+    const tmp = document.createElement('canvas');
+    tmp.width = imgW; tmp.height = imgH;
+    const tctx = tmp.getContext('2d');
+    tctx.putImageData(advImg2, 0, 0);
+    ctx.drawImage(tmp, imgX, imgY, imgW, imgH);
+
+    // Border
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(imgX, imgY, imgW, imgH);
+
+    // Label
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 13px "Orbitron"';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.label, ox + pw/2, 24);
+
+    ctx.fillStyle = '#5a6a8a';
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.fillText(p.desc, ox + pw/2, H - 20);
+    ctx.fillText(pi===0?'tiny ε per pixel':pi===1?'spread out energy':'sparse but large', ox + pw/2, H-6);
+
+    ctx.textAlign = 'left';
+  });
+
+  // Dividers
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(W/3, 0); ctx.lineTo(W/3, H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2*W/3, 0); ctx.lineTo(2*W/3, H); ctx.stroke();
+}
+
+// ============================================================
+// DRAW ALL INTERACTIVE
+// ============================================================
+function drawAll() {
+  updateViz();
+  drawDecisionBoundary();
+  drawNormCompare();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  drawCleanImg();
+  drawPerturbImg();
+  drawAdvImg();
+  drawLossLandscape();
+  drawBarChart();
+
+  // Animate bar fills
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill').forEach(b => {
+      const w = b.style.width;
+      b.style.width = '0%';
+      setTimeout(() => { b.style.width = w; }, 50);
+    });
+  }, 100);
+});
+</script>
+</body>
+</html>
