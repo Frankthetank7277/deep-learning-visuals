@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DL Radiomics Pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #050c12;
+  --bg2:      #08121c;
+  --panel:    #0b1825;
+  --border:   #122030;
+  --border2:  #1a3048;
+  --text:     #c8dce8;
+  --text2:    #6a8fa8;
+  --text3:    #3a5f78;
+  --teal:     #00c9b1;
+  --blue:     #2d9cdb;
+  --amber:    #f2994a;
+  --rose:     #eb5757;
+  --lime:     #6fcf97;
+  --purple:   #9b51e0;
+  --white:    #e8f4ff;
+  --glow-t:   rgba(0,201,177,0.15);
+  --glow-b:   rgba(45,156,219,0.12);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events:none;
+  z-index:9998;
+}
+
+/* ── HEADER ── */
+header {
+  padding: 40px 48px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+header::after {
+  content:'';
+  position:absolute;
+  bottom:0; left:0; right:0;
+  height:1px;
+  background: linear-gradient(90deg, transparent, var(--teal), var(--blue), transparent);
+  opacity:0.4;
+}
+
+.header-bg {
+  position:absolute;
+  inset:0;
+  background: radial-gradient(ellipse at 80% 50%, rgba(0,201,177,0.04) 0%, transparent 60%),
+              radial-gradient(ellipse at 20% 80%, rgba(45,156,219,0.04) 0%, transparent 60%);
+  pointer-events:none;
+}
+
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 10px;
+  opacity:0.8;
+}
+
+h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(22px, 3.5vw, 38px);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+
+h1 span { color: var(--teal); font-style: italic; }
+
+.subtitle {
+  font-size: 10px;
+  color: var(--text2);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  max-width: 400px;
+}
+
+.header-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink:0;
+}
+
+.badge {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 3px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.badge-teal { border-color: var(--teal); color: var(--teal); }
+.badge-blue { border-color: var(--blue); color: var(--blue); }
+
+/* ── PIPELINE TABS ── */
+.pipeline-nav {
+  display: flex;
+  gap: 0;
+  padding: 0 48px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.pipeline-nav::-webkit-scrollbar { display:none; }
+
+.stage-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+}
+
+.stage-tab:not(:last-child)::after {
+  content: '›';
+  position: absolute;
+  right: -4px;
+  color: var(--text3);
+  font-size: 14px;
+  z-index:1;
+}
+
+.stage-num {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  flex-shrink:0;
+}
+
+.stage-name {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.stage-tab { color: var(--text3); }
+.stage-tab.active { border-bottom-color: currentColor; }
+.stage-tab:hover:not(.active) { color: var(--text2); background: rgba(255,255,255,0.02); }
+
+.tab-s1 { color: #38bdf8; }
+.tab-s2 { color: var(--teal); }
+.tab-s3 { color: var(--amber); }
+.tab-s4 { color: var(--purple); }
+.tab-s5 { color: var(--lime); }
+.tab-s6 { color: var(--rose); }
+
+/* ── MAIN LAYOUT ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  min-height: calc(100vh - 200px);
+}
+
+.left { padding: 36px 48px; border-right: 1px solid var(--border); }
+.right { padding: 32px 28px; display:flex; flex-direction:column; gap:24px; }
+
+/* ── STAGE PANELS ── */
+.stage-panel { display:none; }
+.stage-panel.active { display:block; }
+
+.stage-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stage-title-accent { font-style: italic; }
+
+.stage-desc {
+  font-size: 10px;
+  color: var(--text2);
+  line-height: 1.7;
+  max-width: 560px;
+  margin-bottom: 28px;
+}
+
+/* ── CANVAS AREAS ── */
+.canvas-wrap {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.canvas-label {
+  position: absolute;
+  top: 10px; left: 12px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  z-index:2;
+}
+
+canvas { display: block; }
+
+/* ── IMAGE GRID (stage 1) ── */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.img-card {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.img-card:hover, .img-card.active {
+  border-color: var(--teal);
+  transform: translateY(-2px);
+}
+
+.img-card canvas { width:100%; display:block; image-rendering:pixelated; }
+
+.img-card-label {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  color: var(--text3);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+/* ── SEGMENTATION (stage 1) ── */
+.seg-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── FEATURE EXTRACTION (stage 2) ── */
+.fmap-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+}
+
+.fmap-mini canvas { display:block; width:100%; aspect-ratio:1; image-rendering:pixelated; border-radius:2px; }
+
+/* ── RADIOMIC FEATURES (stage 3) ── */
+.feature-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9px;
+}
+
+.feature-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+
+.feature-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.feature-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.feat-bar-wrap { width: 100px; }
+.feat-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+  overflow: hidden;
+}
+.feat-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+.feat-cat {
+  font-size: 7px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── RADAR CHART (stage 3) ── */
+/* ── MODEL (stage 4) ── */
+.model-arch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.arch-block {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 5px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.arch-block:hover { transform: translateX(4px); }
+
+.arch-arrow {
+  display: flex;
+  justify-content: center;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+/* ── OUTCOME (stage 5) ── */
+.outcome-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.outcome-card {
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.outcome-val {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 700;
+  line-height:1;
+  margin-bottom: 4px;
+}
+
+.outcome-key {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+/* ── EXPLAINABILITY (stage 6) ── */
+/* ── RIGHT PANEL ── */
+.r-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.r-card-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.r-card-body { padding: 14px; }
+
+/* Info list */
+.info-list { display: flex; flex-direction: column; gap: 0; }
+
+.info-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 9px;
+}
+.info-row:last-child { border-bottom: none; }
+
+.info-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.info-title { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.info-desc { color: var(--text2); line-height: 1.5; }
+
+/* Pipeline mini-map */
+.minimap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mm-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 9px;
+}
+
+.mm-step:hover { background: rgba(255,255,255,0.03); }
+.mm-step.active { background: rgba(255,255,255,0.05); }
+
+.mm-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink:0;
+  position:relative;
+}
+
+.mm-step.active .mm-dot::after {
+  content:'';
+  position:absolute;
+  inset:-3px;
+  border-radius:50%;
+  border: 1px solid currentColor;
+  opacity:0.4;
+}
+
+.mm-label { color: var(--text2); }
+.mm-step.active .mm-label { color: var(--text); }
+
+.mm-connector {
+  width: 1px; height: 12px;
+  background: var(--border2);
+  margin-left: 11px;
+}
+
+/* Key metrics */
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 9px;
+}
+.metric-row:last-child { border-bottom:none; }
+.metric-label { color: var(--text2); }
+.metric-val { font-weight: 600; color: var(--teal); }
+
+/* Animated pulse for active */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(0,201,177,0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(0,201,177,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,201,177,0); }
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:1; transform:none; }
+}
+
+.stage-panel.active { animation: fadeUp 0.3s ease both; }
+
+@keyframes scanH {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+/* Data flow animation */
+@keyframes flow {
+  0% { stroke-dashoffset: 20; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Tooltip */
+.tip {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 9px;
+  color: var(--text);
+  max-width: 200px;
+  pointer-events: none;
+  z-index: 9000;
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1.6;
+}
+.tip.show { opacity: 1; }
+.tip strong { color: var(--teal); display:block; margin-bottom:3px; }
+
+/* Progress bar (animated) */
+.progress-bar {
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--teal), var(--blue));
+  transition: width 0.8s ease;
+}
+
+/* Glow effects on active canvas */
+.canvas-wrap.glow-teal { box-shadow: 0 0 20px rgba(0,201,177,0.08); }
+.canvas-wrap.glow-amber { box-shadow: 0 0 20px rgba(242,153,74,0.08); }
+.canvas-wrap.glow-purple { box-shadow: 0 0 20px rgba(155,81,224,0.08); }
+
+@media (max-width:900px) {
+  .main-grid { grid-template-columns: 1fr; }
+  header, .pipeline-nav, .left { padding-left:20px; padding-right:20px; }
+  .right { padding:20px; border-top:1px solid var(--border); }
+  .image-grid { grid-template-columns:repeat(2,1fr); }
+  .seg-row { grid-template-columns:1fr; }
+  .outcome-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="tip" class="tip"></div>
+
+<header>
+  <div class="header-bg"></div>
+  <div>
+    <div class="eyebrow">Biomedical Imaging · BIOE 486 · Radiomics</div>
+    <h1>Deep Learning<br><span>Radiomics</span> Pipeline</h1>
+    <p class="subtitle">From raw medical image → segmentation → DL feature extraction → radiomic quantification → clinical outcome prediction</p>
+  </div>
+  <div class="header-badge">
+    <div class="badge badge-teal">CT / MRI / PET</div>
+    <div class="badge badge-blue">PyTorch · 3D-UNet</div>
+    <div class="badge badge-teal">IBSI Compliant</div>
+  </div>
+</header>
+
+<!-- Stage tabs -->
+<nav class="pipeline-nav">
+  <div class="stage-tab tab-s1 active" onclick="goStage(0,this)">
+    <span class="stage-num">1</span><span class="stage-name">Imaging</span>
+  </div>
+  <div class="stage-tab tab-s2" onclick="goStage(1,this)">
+    <span class="stage-num">2</span><span class="stage-name">Segmentation</span>
+  </div>
+  <div class="stage-tab tab-s3" onclick="goStage(2,this)">
+    <span class="stage-num">3</span><span class="stage-name">DL Features</span>
+  </div>
+  <div class="stage-tab tab-s4" onclick="goStage(3,this)">
+    <span class="stage-num">4</span><span class="stage-name">Radiomics</span>
+  </div>
+  <div class="stage-tab tab-s5" onclick="goStage(4,this)">
+    <span class="stage-num">5</span><span class="stage-name">Model</span>
+  </div>
+  <div class="stage-tab tab-s6" onclick="goStage(5,this)">
+    <span class="stage-num">6</span><span class="stage-name">Outcome</span>
+  </div>
+</nav>
+
+<div class="main-grid">
+<div class="left">
+
+<!-- ══════════════ STAGE 1: IMAGING ══════════════ -->
+<div class="stage-panel active" id="s0">
+  <div class="stage-title">
+    Medical <span class="stage-title-accent" style="color:#38bdf8">Imaging</span> Input
+  </div>
+  <p class="stage-desc">
+    Radiomics begins with standardized medical images — CT, MRI, or PET/CT. Pixel intensities encode tissue properties: Hounsfield Units (CT), T1/T2 relaxation (MRI), SUV (PET). Preprocessing includes resampling to isotropic voxels, intensity normalization, and optional augmentation.
+  </p>
+
+  <div class="image-grid" id="imgGrid"></div>
+
+  <div class="seg-row">
+    <div class="canvas-wrap glow-teal" style="padding-top:4px;">
+      <div class="canvas-label">Raw CT Slice</div>
+      <canvas id="ctRaw" width="200" height="180"></canvas>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Windowed (Lung)</div>
+      <canvas id="ctWin" width="200" height="180"></canvas>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">HU Histogram</div>
+      <canvas id="ctHist" width="200" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ STAGE 2: SEGMENTATION ══════════════ -->
+<div class="stage-panel" id="s1">
+  <div class="stage-title">
+    Tumor <span class="stage-title-accent" style="color:var(--teal)">Segmentation</span>
+  </div>
+  <p class="stage-desc">
+    A deep learning segmentation model (3D U-Net, nnU-Net) delineates the Region of Interest (ROI). The segmentation mask defines exactly which voxels are used for radiomic feature extraction — this step is critical since feature values are extremely sensitive to mask boundaries.
+  </p>
+  <div class="seg-row">
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Input Slice</div>
+      <canvas id="segIn" width="200" height="200"></canvas>
+    </div>
+    <div class="canvas-wrap glow-teal" style="padding-top:4px;">
+      <div class="canvas-label">U-Net Prediction</div>
+      <canvas id="segPred" width="200" height="200"></canvas>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Overlay + Contour</div>
+      <canvas id="segOverlay" width="200" height="200"></canvas>
+    </div>
+  </div>
+  <div style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:12px;text-align:center;">
+      <div style="font-family:'Fraunces',serif;font-size:22px;color:var(--teal);font-weight:700;">0.924</div>
+      <div style="font-size:8px;color:var(--text2);margin-top:3px;letter-spacing:0.08em;text-transform:uppercase;">Dice Score</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:12px;text-align:center;">
+      <div style="font-family:'Fraunces',serif;font-size:22px;color:var(--blue);font-weight:700;">3.2mm</div>
+      <div style="font-size:8px;color:var(--text2);margin-top:3px;letter-spacing:0.08em;text-transform:uppercase;">Hausdorff 95%</div>
+    </div>
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:12px;text-align:center;">
+      <div style="font-family:'Fraunces',serif;font-size:22px;color:var(--lime);font-weight:700;">0.911</div>
+      <div style="font-size:8px;color:var(--text2);margin-top:3px;letter-spacing:0.08em;text-transform:uppercase;">IoU</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ STAGE 3: DL FEATURE EXTRACTION ══════════════ -->
+<div class="stage-panel" id="s2">
+  <div class="stage-title">
+    Deep Learning <span class="stage-title-accent" style="color:var(--amber)">Feature Extraction</span>
+  </div>
+  <p class="stage-desc">
+    A pretrained CNN (ResNet, EfficientNet, or task-specific 3D CNN) extracts high-dimensional feature representations from the ROI. Feature maps from multiple layers encode different abstraction levels. These deep features complement — or replace — handcrafted radiomic features.
+  </p>
+
+  <div style="margin-bottom:16px;">
+    <div style="font-size:8px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Feature maps · Conv3 (32 channels)</div>
+    <div class="fmap-mini-grid" id="dlFmaps"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="canvas-wrap glow-amber" style="padding-top:4px;">
+      <div class="canvas-label">Activation Heatmap</div>
+      <canvas id="dlHeatmap" width="220" height="180"></canvas>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Feature Space (t-SNE)</div>
+      <canvas id="dlTsne" width="220" height="180"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ STAGE 4: RADIOMICS ══════════════ -->
+<div class="stage-panel" id="s3">
+  <div class="stage-title">
+    Radiomic <span class="stage-title-accent" style="color:var(--purple)">Feature Quantification</span>
+  </div>
+  <p class="stage-desc">
+    1,000+ handcrafted features are extracted from the segmented ROI across 5 IBSI-defined categories. Features capture shape, intensity statistics, texture (GLCM, GLRLM, GLSZM), and wavelet-decomposed variants. DL features and handcrafted features are combined or compared.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="canvas-wrap glow-purple" style="padding-top:4px;">
+      <div class="canvas-label">Feature Categories (Radar)</div>
+      <canvas id="radarCanvas" width="240" height="220"></canvas>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div class="canvas-wrap" style="padding-top:4px;flex:1;">
+        <div class="canvas-label">Feature Correlation Matrix</div>
+        <canvas id="corrMatrix" width="240" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+    <table class="feature-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Category</th>
+          <th>Value</th>
+          <th>Importance</th>
+          <th>ICC</th>
+        </tr>
+      </thead>
+      <tbody id="featureTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════ STAGE 5: MODEL ══════════════ -->
+<div class="stage-panel" id="s4">
+  <div class="stage-title">
+    Prediction <span class="stage-title-accent" style="color:var(--lime)">Model</span>
+  </div>
+  <p class="stage-desc">
+    Selected radiomic + deep features feed into a ML/DL classifier or regressor. Common approaches include LASSO-regularized Cox regression for survival, random forests with SHAP explanations, or end-to-end deep networks with attention mechanisms over the feature set.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div style="font-size:8px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Model Architecture</div>
+      <div class="model-arch" id="modelArch"></div>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Feature Importance (SHAP)</div>
+      <canvas id="shapCanvas" width="260" height="320"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ STAGE 6: OUTCOME ══════════════ -->
+<div class="stage-panel" id="s5">
+  <div class="stage-title">
+    Clinical <span class="stage-title-accent" style="color:var(--rose)">Outcome</span>
+  </div>
+  <p class="stage-desc">
+    The final model outputs a clinical prediction — tumor grade, treatment response (RECIST), OS/PFS survival probability, or recurrence risk. Performance is validated on held-out data with AUC, C-index, and calibration curves. Explainability via SHAP or GradCAM closes the loop.
+  </p>
+
+  <div class="outcome-grid" style="margin-bottom:16px;">
+    <div class="outcome-card">
+      <div class="outcome-val" style="color:var(--teal)">0.87</div>
+      <div class="outcome-key">AUC-ROC</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:87%"></div></div>
+    </div>
+    <div class="outcome-card">
+      <div class="outcome-val" style="color:var(--blue)">0.81</div>
+      <div class="outcome-key">C-Index (survival)</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:81%"></div></div>
+    </div>
+    <div class="outcome-card">
+      <div class="outcome-val" style="color:var(--lime)">84%</div>
+      <div class="outcome-key">Accuracy</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:84%"></div></div>
+    </div>
+    <div class="outcome-card">
+      <div class="outcome-val" style="color:var(--amber)">0.79</div>
+      <div class="outcome-key">F1 Score</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:79%"></div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">ROC Curve</div>
+      <canvas id="rocCanvas" width="260" height="220"></canvas>
+    </div>
+    <div class="canvas-wrap" style="padding-top:4px;">
+      <div class="canvas-label">Kaplan-Meier Survival</div>
+      <canvas id="kmCanvas" width="260" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+</div><!-- /left -->
+
+<!-- RIGHT COLUMN -->
+<div class="right">
+
+  <!-- Pipeline minimap -->
+  <div class="r-card">
+    <div class="r-card-header">
+      <span>Pipeline Overview</span>
+      <span style="color:var(--teal);cursor:pointer" onclick="goStage(0,document.querySelectorAll('.stage-tab')[0])">↺ restart</span>
+    </div>
+    <div class="r-card-body">
+      <div class="minimap" id="minimap"></div>
+    </div>
+  </div>
+
+  <!-- Key concepts -->
+  <div class="r-card">
+    <div class="r-card-header"><span>Stage Notes</span></div>
+    <div class="r-card-body">
+      <div class="info-list" id="stageNotes"></div>
+    </div>
+  </div>
+
+  <!-- Key metrics -->
+  <div class="r-card">
+    <div class="r-card-header"><span>Benchmark Metrics</span></div>
+    <div class="r-card-body">
+      <div class="metric-row"><span class="metric-label">Feature count (handcrafted)</span><span class="metric-val">1,218</span></div>
+      <div class="metric-row"><span class="metric-label">DL feature dim</span><span class="metric-val">2,048</span></div>
+      <div class="metric-row"><span class="metric-label">Selected after LASSO</span><span class="metric-val">47</span></div>
+      <div class="metric-row"><span class="metric-label">Training cohort n</span><span class="metric-val">312</span></div>
+      <div class="metric-row"><span class="metric-label">External validation n</span><span class="metric-val">104</span></div>
+      <div class="metric-row"><span class="metric-label">Imaging modality</span><span class="metric-val" style="color:var(--blue)">CT + PET</span></div>
+    </div>
+  </div>
+
+</div>
+</div><!-- /main-grid -->
+
+<script>
+// ══════════════ UTILITIES ══════════════
+const clamp = (v,lo=0,hi=1) => Math.max(lo,Math.min(hi,v));
+const lerp = (a,b,t) => a+(b-a)*t;
+const rand = (lo,hi) => lo + Math.random()*(hi-lo);
+
+// Seeded random
+function seededRand(seed) {
+  let s = seed;
+  return () => { s = (s*16807 + 0) % 2147483647; return (s-1)/2147483646; };
+}
+
+const tip = document.getElementById('tip');
+function showTip(e, title, body) {
+  tip.innerHTML = `<strong>${title}</strong>${body}`;
+  tip.classList.add('show');
+  moveTip(e);
+}
+function hideTip() { tip.classList.remove('show'); }
+document.addEventListener('mousemove', moveTip);
+function moveTip(e) {
+  if(!tip.classList.contains('show')) return;
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+220>window.innerWidth) x=e.clientX-220;
+  if(y+100>window.innerHeight) y=e.clientY-100;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+
+// ══════════════ CT SIMULATION ══════════════
+function huToGray(hu, wc, ww) {
+  const lo = wc - ww/2, hi = wc + ww/2;
+  return clamp((hu - lo) / ww);
+}
+
+function generateCTSlice(W, H, seed=42) {
+  const r = seededRand(seed);
+  // Background body shape + lung fields + tumor
+  const cx=W/2, cy=H/2;
+  const data = new Float32Array(W*H);
+  for (let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const dx=(x-cx)/cx, dy=(y-cy)/cy;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    let hu = -1000; // air
+    // Body ellipse
+    if (dist < 0.92) hu = lerp(-100, 60, (0.92-dist)/0.92);
+    // Ribs (arcs)
+    const angle = Math.atan2(dy, dx);
+    const ribDist = Math.abs(dist - 0.7);
+    if (ribDist < 0.04 && Math.abs(Math.sin(angle*6)) > 0.7) hu = 800;
+    // Spine
+    if (Math.abs(dx)<0.08 && dy>0.1 && dy<0.6) hu = 700;
+    // Left lung
+    const lx=dx+0.28, ly=dy-0.05;
+    if (Math.sqrt(lx*lx*1.8+ly*ly) < 0.28) hu = -700 + r()*80;
+    // Right lung
+    const rx=dx-0.28, ry=dy-0.05;
+    if (Math.sqrt(rx*rx*1.8+ry*ry) < 0.28) hu = -700 + r()*80;
+    // Tumor in right lung
+    const tx=dx-0.18, ty=dy+0.05;
+    if (Math.sqrt(tx*tx+ty*ty) < 0.09) hu = lerp(-200, 40, (0.09-Math.sqrt(tx*tx+ty*ty))/0.09);
+    // Heart
+    const hx=dx+0.08, hy=dy-0.05;
+    if (Math.sqrt(hx*hx*0.8+hy*hy) < 0.18) hu = lerp(40, 60, r());
+    data[y*W+x] = hu;
+  }
+  return data;
+}
+
+function renderCT(canvas, data, W, H, wc, ww, colorize=false) {
+  const ctx = canvas.getContext('2d');
+  canvas.width=W; canvas.height=H;
+  const img = ctx.createImageData(W,H);
+  for (let i=0;i<W*H;i++) {
+    const t = huToGray(data[i], wc, ww);
+    const v = Math.round(t*255);
+    if (colorize) {
+      // False color: hot for high HU
+      img.data[i*4] = Math.round(clamp(t*2)*255);
+      img.data[i*4+1] = Math.round(clamp(t*3-1)*255);
+      img.data[i*4+2] = Math.round(clamp(t*3-2)*255);
+    } else {
+      img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v;
+    }
+    img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+}
+
+// ══════════════ SEGMENTATION ══════════════
+function drawSegmentation() {
+  const W=200,H=200;
+  const ctData = generateCTSlice(W,H,42);
+
+  // Input
+  renderCT(document.getElementById('segIn'), ctData, W, H, -600, 1500);
+
+  // Prediction mask
+  const pred = document.getElementById('segPred');
+  const pctx = pred.getContext('2d');
+  pred.width=W; pred.height=H;
+  const pimg = pctx.createImageData(W,H);
+  const cx=W/2, cy=H/2;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const dx=(x-cx)/cx, dy=(y-cy)/cy;
+    const tx=dx-0.18, ty=dy+0.05;
+    const d = Math.sqrt(tx*tx+ty*ty);
+    const inTumor = d<0.09;
+    const lung = Math.sqrt((dx-0.28)*(dx-0.28)*1.8+dy*dy)<0.28;
+    const i=(y*W+x)*4;
+    if (inTumor) {
+      pimg.data[i]=235; pimg.data[i+1]=87; pimg.data[i+2]=87; pimg.data[i+3]=255;
+    } else if (lung) {
+      pimg.data[i]=18; pimg.data[i+1]=58; pimg.data[i+2]=80; pimg.data[i+3]=255;
+    } else {
+      pimg.data[i]=pimg.data[i+1]=pimg.data[i+2]=20; pimg.data[i+3]=255;
+    }
+  }
+  pctx.putImageData(pimg,0,0);
+
+  // Overlay
+  const ov = document.getElementById('segOverlay');
+  const octx = ov.getContext('2d');
+  ov.width=W; ov.height=H;
+  // Draw CT
+  const oimg = octx.createImageData(W,H);
+  for(let i=0;i<W*H;i++) {
+    const t = huToGray(ctData[i],-600,1500);
+    const v=Math.round(t*255);
+    oimg.data[i*4]=oimg.data[i*4+1]=oimg.data[i*4+2]=v; oimg.data[i*4+3]=255;
+  }
+  octx.putImageData(oimg,0,0);
+  // Tumor overlay
+  octx.save();
+  octx.globalAlpha=0.35;
+  octx.fillStyle='#eb5757';
+  const tx2=(0.5-0.18+0.18*(cx/cx))*W, ty2=(0.5+0.05+0.05*(cy/cy))*H;
+  octx.beginPath();
+  octx.ellipse((0.5-0.18)*W+cx*0.18, (0.5+0.05)*H+cy*0.05, 0.09*cx, 0.09*cy, 0, 0, Math.PI*2);
+  octx.fill();
+  octx.restore();
+  // Contour
+  octx.save();
+  octx.strokeStyle='#eb5757';
+  octx.lineWidth=2;
+  octx.setLineDash([4,3]);
+  octx.beginPath();
+  octx.ellipse((1-0.18)*cx, (1+0.05)*cy, 0.09*cx, 0.09*cy, 0, 0, Math.PI*2);
+  octx.stroke();
+  octx.restore();
+}
+
+// ══════════════ CT PANELS (stage 1) ══════════════
+function drawCTPanels() {
+  const W=200, H=180;
+  const ctData = generateCTSlice(W,H,42);
+
+  // Raw (wide window)
+  renderCT(document.getElementById('ctRaw'), ctData, W, H, 40, 400);
+
+  // Lung window
+  renderCT(document.getElementById('ctWin'), ctData, W, H, -600, 1500);
+
+  // HU Histogram
+  const hc = document.getElementById('ctHist');
+  const hctx = hc.getContext('2d');
+  hc.width=W; hc.height=H;
+  hctx.fillStyle='#08121c';
+  hctx.fillRect(0,0,W,H);
+
+  const bins=50, bw=W/bins;
+  const counts=new Array(bins).fill(0);
+  const huMin=-1000, huMax=1000;
+  ctData.forEach(v => {
+    const b=Math.min(bins-1,Math.floor((v-huMin)/(huMax-huMin)*bins));
+    if(b>=0)counts[b]++;
+  });
+  const mx=Math.max(...counts);
+  counts.forEach((c,i) => {
+    const t=i/bins;
+    const barH=(c/mx)*(H-24);
+    const gray=Math.round(t*255);
+    hctx.fillStyle=`rgb(${Math.round(t*0)},${Math.round(t*200)},${Math.round(180+t*75)})`;
+    hctx.fillRect(i*bw, H-barH-20, bw-1, barH);
+  });
+  // Axes
+  hctx.strokeStyle='#1a3048';
+  hctx.beginPath(); hctx.moveTo(0,H-20); hctx.lineTo(W,H-20); hctx.stroke();
+  hctx.fillStyle='#3a5f78';
+  hctx.font='7px IBM Plex Mono';
+  hctx.fillText('-1000', 2, H-6);
+  hctx.fillText('HU', W/2-8, H-6);
+  hctx.fillText('+1000', W-36, H-6);
+  hctx.fillStyle='#6a8fa8';
+  hctx.font='8px IBM Plex Mono';
+  hctx.fillText('n='+ctData.length.toLocaleString(), 4, 14);
+}
+
+// ══════════════ IMAGE THUMBS (stage 1) ══════════════
+function drawImageThumbs() {
+  const grid = document.getElementById('imgGrid');
+  grid.innerHTML='';
+  const modalities = [
+    {name:'CT Axial', wc:40, ww:400, seed:42},
+    {name:'CT Coronal', wc:-600, ww:1500, seed:17},
+    {name:'T1w MRI', wc:40, ww:200, seed:7},
+    {name:'PET SUV', wc:40, ww:300, seed:99, hot:true},
+  ];
+  modalities.forEach((m,i) => {
+    const card = document.createElement('div');
+    card.className='img-card'+(i===0?' active':'');
+    const cv = document.createElement('canvas');
+    cv.width=80; cv.height=80;
+    const d = generateCTSlice(80,80,m.seed);
+    renderCT(cv,d,80,80,m.wc,m.ww,m.hot||false);
+    const lbl = document.createElement('div');
+    lbl.className='img-card-label';
+    lbl.textContent=m.name;
+    card.appendChild(cv); card.appendChild(lbl);
+    card.onclick=()=>{
+      document.querySelectorAll('.img-card').forEach(c=>c.classList.remove('active'));
+      card.classList.add('active');
+    };
+    card.addEventListener('mouseenter', e => showTip(e, m.name, `Windowing: WC=${m.wc}, WW=${m.ww}. Different windows reveal different tissue types.`));
+    card.addEventListener('mouseleave', hideTip);
+    grid.appendChild(card);
+  });
+}
+
+// ══════════════ DL FEATURE MAPS ══════════════
+function drawDLFmaps() {
+  const grid = document.getElementById('dlFmaps');
+  grid.innerHTML='';
+  const W=32,H=32;
+  const kernels = [
+    (x,y,w,h)=>(Math.sin(x/w*Math.PI*6)*Math.cos(y/h*Math.PI*4)+1)/2,
+    (x,y,w,h)=>(Math.sin((x+y)/(w+h)*Math.PI*10)+1)/2,
+    (x,y,w,h)=>Math.max(0,1-Math.sqrt((x/w-0.5)**2+(y/h-0.5)**2)*4),
+    (x,y,w,h)=>(Math.sin(x/w*Math.PI*8)+1)/2,
+    (x,y,w,h)=>(Math.cos(y/h*Math.PI*8)+1)/2,
+    (x,y,w,h)=>(Math.sin(x/w*Math.PI*4)*Math.sin(y/h*Math.PI*4)+1)/2*0.8+0.1,
+    (x,y,w,h)=>clamp(Math.sin(x/w*20)*Math.cos(y/h*15)*0.5+0.5),
+    (x,y,w,h)=>((x+y)%(w/4)<w/8)?0.9:0.1,
+  ];
+  const colors = ['#00c9b1','#2d9cdb','#f2994a','#9b51e0','#6fcf97','#eb5757','#38bdf8','#f2c94c'];
+  for(let f=0;f<32;f++) {
+    const cell = document.createElement('div');
+    cell.className='fmap-mini';
+    const cv = document.createElement('canvas');
+    cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d');
+    const img=ctx.createImageData(W,H);
+    const kfn = kernels[f%kernels.length];
+    // Add variation per filter
+    const phase = f*0.37;
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+      const t=clamp(kfn(x+Math.sin(phase)*3,y+Math.cos(phase)*3,W,H));
+      // Viridis-ish
+      const r=Math.round(clamp(lerp(0.267,0.993,t))*255);
+      const g=Math.round(clamp(lerp(0.005,0.906,t))*255);
+      const b=Math.round(clamp(lerp(0.329,0.144,t))*255);
+      const i=(y*W+x)*4;
+      img.data[i]=r; img.data[i+1]=g; img.data[i+2]=b; img.data[i+3]=255;
+    }
+    ctx.putImageData(img,0,0);
+    cell.appendChild(cv);
+    cell.addEventListener('mouseenter', e=>showTip(e,`Filter F${f}`,`Encodes spatial pattern ${f}. Higher activations (bright) indicate presence of this learned feature within the tumor ROI.`));
+    cell.addEventListener('mouseleave', hideTip);
+    grid.appendChild(cell);
+  }
+}
+
+function drawDLHeatmap() {
+  const c=document.getElementById('dlHeatmap');
+  const ctx=c.getContext('2d');
+  const W=220,H=180;
+  c.width=W; c.height=H;
+  const ct = generateCTSlice(W,H,42);
+  // Draw CT
+  const img=ctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++){
+    const t=huToGray(ct[i],-600,1500);
+    const v=Math.round(t*200);
+    img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v; img.data[i*4+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  // GradCAM heatmap overlay
+  const cx=W/2,cy=H/2;
+  const himg=ctx.createImageData(W,H);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+    const tx=(x-cx)/cx-0.18, ty=(y-cy)/cy+0.05;
+    const d=Math.sqrt(tx*tx+ty*ty);
+    const att=Math.max(0, Math.exp(-d*d*60));
+    const ring=Math.exp(-(d-0.08)*(d-0.08)*200)*0.4;
+    const t=clamp(att+ring);
+    const i=(y*W+x)*4;
+    himg.data[i]=Math.round(clamp(t*3)*255);
+    himg.data[i+1]=Math.round(clamp(t*3-1)*255);
+    himg.data[i+2]=0;
+    himg.data[i+3]=Math.round(t*180);
+  }
+  // Blend
+  const tmp=document.createElement('canvas');
+  tmp.width=W; tmp.height=H;
+  const tctx=tmp.getContext('2d');
+  tctx.putImageData(himg,0,0);
+  ctx.drawImage(tmp,0,0);
+  // Label
+  ctx.fillStyle='#eb5757';
+  ctx.font='8px IBM Plex Mono';
+  ctx.fillText('GradCAM activation', 6, H-8);
+}
+
+function drawTSNE() {
+  const c=document.getElementById('dlTsne');
+  const ctx=c.getContext('2d');
+  const W=220,H=180;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+
+  const r=seededRand(77);
+  const clusters = [
+    {x:0.25,y:0.35,col:'#eb5757',n:20,label:'High Grade'},
+    {x:0.65,y:0.6,col:'#6fcf97',n:25,label:'Low Grade'},
+    {x:0.45,y:0.75,col:'#f2994a',n:15,label:'Responder'},
+    {x:0.7,y:0.25,col:'#2d9cdb',n:18,label:'Non-resp.'},
+  ];
+
+  clusters.forEach(cl => {
+    for(let i=0;i<cl.n;i++) {
+      const angle=r()*Math.PI*2, dist=r()*30;
+      const px=cl.x*W+Math.cos(angle)*dist;
+      const py=cl.y*H+Math.sin(angle)*dist;
+      ctx.beginPath();
+      ctx.arc(px,py,3+r()*2,0,Math.PI*2);
+      ctx.fillStyle=cl.col;
+      ctx.globalAlpha=0.7+r()*0.3;
+      ctx.fill();
+    }
+    // Convex hull approx (just ellipse)
+    ctx.save();
+    ctx.globalAlpha=0.12;
+    ctx.fillStyle=cl.col;
+    ctx.beginPath();
+    ctx.ellipse(cl.x*W,cl.y*H,35,28,r()*0.5,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    // Label
+    ctx.globalAlpha=0.8;
+    ctx.fillStyle=cl.col;
+    ctx.font='7px IBM Plex Mono';
+    ctx.fillText(cl.label,cl.x*W-15,cl.y*H-34);
+  });
+  ctx.globalAlpha=1;
+  ctx.fillStyle='#6a8fa8';
+  ctx.font='8px IBM Plex Mono';
+  ctx.fillText('t-SNE · DL feature space', 6, H-6);
+}
+
+// ══════════════ RADAR CHART ══════════════
+function drawRadar() {
+  const c=document.getElementById('radarCanvas');
+  const ctx=c.getContext('2d');
+  const W=240,H=220;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+
+  const cx=W/2, cy=H/2+10;
+  const R=75;
+  const cats=['Shape','Intensity','GLCM','GLRLM','Wavelet'];
+  const vals=[0.82, 0.71, 0.88, 0.65, 0.76];
+  const dlVals=[0.90, 0.85, 0.79, 0.82, 0.94];
+  const n=cats.length;
+
+  // Grid rings
+  [0.25,0.5,0.75,1.0].forEach(r => {
+    ctx.beginPath();
+    for(let i=0;i<n;i++) {
+      const a=i/n*Math.PI*2-Math.PI/2;
+      const x=cx+Math.cos(a)*R*r, y=cy+Math.sin(a)*R*r;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle='#122030';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    ctx.fillStyle='#1a3048';
+    ctx.font='6px IBM Plex Mono';
+    ctx.fillText(Math.round(r*100)+'%', cx+4, cy-R*r+3);
+  });
+
+  // Axes
+  for(let i=0;i<n;i++) {
+    const a=i/n*Math.PI*2-Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+Math.cos(a)*R, cy+Math.sin(a)*R);
+    ctx.strokeStyle='#122030'; ctx.stroke();
+    // Label
+    const lx=cx+Math.cos(a)*(R+14), ly=cy+Math.sin(a)*(R+14);
+    ctx.fillStyle='#6a8fa8';
+    ctx.font='7px IBM Plex Mono';
+    ctx.textAlign='center';
+    ctx.fillText(cats[i],lx,ly+3);
+  }
+  ctx.textAlign='left';
+
+  // Handcrafted polygon
+  ctx.beginPath();
+  vals.forEach((v,i) => {
+    const a=i/n*Math.PI*2-Math.PI/2;
+    const x=cx+Math.cos(a)*R*v, y=cy+Math.sin(a)*R*v;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='rgba(155,81,224,0.15)';
+  ctx.fill();
+  ctx.strokeStyle='#9b51e0';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+
+  // DL polygon
+  ctx.beginPath();
+  dlVals.forEach((v,i) => {
+    const a=i/n*Math.PI*2-Math.PI/2;
+    const x=cx+Math.cos(a)*R*v, y=cy+Math.sin(a)*R*v;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle='rgba(0,201,177,0.12)';
+  ctx.fill();
+  ctx.strokeStyle='#00c9b1';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+
+  // Legend
+  [['\u25A0 Handcrafted','#9b51e0'],['\u25A0 DL Features','#00c9b1']].forEach(([t,c],i)=>{
+    ctx.fillStyle=c; ctx.font='7px IBM Plex Mono';
+    ctx.fillText(t, 6, H-14+i*10);
+  });
+}
+
+function drawCorrMatrix() {
+  const c=document.getElementById('corrMatrix');
+  const ctx=c.getContext('2d');
+  const W=240,H=220;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+  const n=8;
+  const pad=30;
+  const cell=(W-pad)/n;
+  const r=seededRand(13);
+  const names=['Shape','Vol','Mean','Std','GLCM1','GLCM2','Wav1','Wav2'];
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) {
+    let corr = i===j?1:r()*2-1;
+    if(Math.abs(i-j)<=1) corr=Math.abs(corr)*0.7+0.2;
+    const t=(corr+1)/2;
+    const rb=Math.round(lerp(0,45,t)), g=Math.round(lerp(0,156,t)), b2=Math.round(lerp(0,219,t));
+    const rb2=Math.round(lerp(235,0,t)), g2=Math.round(lerp(87,0,t)), b3=Math.round(lerp(87,0,t));
+    const colR=Math.round(lerp(rb2,rb,t)), colG=Math.round(lerp(g2,g,t)), colB=Math.round(lerp(b3,b2,t));
+    ctx.fillStyle=`rgb(${colR},${colG},${colB})`;
+    ctx.fillRect(pad+j*cell, pad+i*cell, cell-1, cell-1);
+  }
+  // Labels
+  ctx.fillStyle='#6a8fa8'; ctx.font='7px IBM Plex Mono';
+  names.forEach((nm,i) => {
+    ctx.fillText(nm.slice(0,4), 0, pad+i*cell+cell/2+3);
+    ctx.save(); ctx.translate(pad+i*cell+cell/2, pad-4); ctx.rotate(-Math.PI/4);
+    ctx.fillText(nm.slice(0,4), 0, 0); ctx.restore();
+  });
+}
+
+// ══════════════ FEATURE TABLE ══════════════
+const features = [
+  {name:'Volume', cat:'Shape', catCol:'#9b51e0', val:14.32, imp:0.91, icc:0.98},
+  {name:'Sphericity', cat:'Shape', catCol:'#9b51e0', val:0.74, imp:0.76, icc:0.95},
+  {name:'Mean HU', cat:'Intensity', catCol:'#2d9cdb', val:-45.2, imp:0.68, icc:0.97},
+  {name:'Energy (GLCM)', cat:'Texture', catCol:'#f2994a', val:0.023, imp:0.85, icc:0.93},
+  {name:'Homogeneity', cat:'Texture', catCol:'#f2994a', val:0.81, imp:0.79, icc:0.91},
+  {name:'LRE (GLRLM)', cat:'Texture', catCol:'#f2994a', val:12.4, imp:0.61, icc:0.88},
+  {name:'Wavelet-HH Std', cat:'Wavelet', catCol:'#00c9b1', val:0.048, imp:0.82, icc:0.90},
+  {name:'Flatness', cat:'Shape', catCol:'#9b51e0', val:0.61, imp:0.55, icc:0.96},
+];
+
+function buildFeatureTable() {
+  const tbody = document.getElementById('featureTableBody');
+  tbody.innerHTML='';
+  features.forEach(f => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${f.name}</td>
+      <td><span class="feat-cat" style="background:${f.catCol}22;color:${f.catCol}">${f.cat}</span></td>
+      <td>${typeof f.val==='number'?f.val.toFixed(3):f.val}</td>
+      <td>
+        <div class="feat-bar-wrap">
+          <div class="feat-bar"><div class="feat-bar-fill" style="width:${f.imp*100}%;background:${f.catCol}"></div></div>
+        </div>
+      </td>
+      <td style="color:${f.icc>0.9?'#6fcf97':'#f2994a'}">${f.icc.toFixed(2)}</td>
+    `;
+    tr.addEventListener('mouseenter', e=>showTip(e,f.name,`Category: ${f.cat}<br>Importance: ${(f.imp*100).toFixed(0)}%<br>ICC: ${f.icc.toFixed(2)} (${f.icc>0.9?'excellent':'good'} reproducibility)`));
+    tr.addEventListener('mouseleave', hideTip);
+    tbody.appendChild(tr);
+  });
+}
+
+// ══════════════ MODEL ARCH ══════════════
+const archBlocks = [
+  {label:'Input (1218D + 2048D)', bg:'#0b1825', border:'#1a3048', color:'#6a8fa8'},
+  {label:'Feature Fusion (MLP)', bg:'#0e1e2e', border:'#122e4a', color:'#38bdf8'},
+  {label:'LASSO Selection → 47D', bg:'#0b1e18', border:'#124030', color:'#00c9b1'},
+  {label:'Batch Norm + Dropout 0.3', bg:'#12120e', border:'#303012', color:'#f2c94c'},
+  {label:'FC 47 → 128 → 64', bg:'#1a0e28', border:'#3a1a50', color:'#9b51e0'},
+  {label:'FC 64 → 2 + Softmax', bg:'#1a1208', border:'#402808', color:'#f2994a'},
+  {label:'Output: p(high-grade)', bg:'#1a0808', border:'#401818', color:'#eb5757'},
+];
+
+function buildModelArch() {
+  const wrap = document.getElementById('modelArch');
+  wrap.innerHTML='';
+  archBlocks.forEach((b,i) => {
+    const block = document.createElement('div');
+    block.className='arch-block';
+    block.style.background=b.bg;
+    block.style.borderColor=b.border;
+    block.style.color=b.color;
+    block.innerHTML=`<span>${b.label}</span><span style="opacity:0.4">⬝</span>`;
+    block.addEventListener('mouseenter', e=>showTip(e,'Layer '+i, `${b.label}. Click to inspect parameters.`));
+    block.addEventListener('mouseleave', hideTip);
+    wrap.appendChild(block);
+    if(i<archBlocks.length-1) {
+      const arr=document.createElement('div');
+      arr.className='arch-arrow';
+      arr.textContent='↓';
+      wrap.appendChild(arr);
+    }
+  });
+}
+
+function drawSHAP() {
+  const c=document.getElementById('shapCanvas');
+  const ctx=c.getContext('2d');
+  const W=260, H=320;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+
+  const items = [
+    {name:'Volume', val:0.42, pos:true},
+    {name:'GLCM Energy', val:0.38, pos:true},
+    {name:'Sphericity', val:-0.31, pos:false},
+    {name:'Wavelet-HH', val:0.28, pos:true},
+    {name:'Mean HU', val:-0.24, pos:false},
+    {name:'DL F182', val:0.21, pos:true},
+    {name:'Homogeneity', val:-0.18, pos:false},
+    {name:'DL F047', val:0.17, pos:true},
+    {name:'Flatness', val:-0.14, pos:false},
+    {name:'LRE GLRLM', val:0.11, pos:true},
+  ];
+
+  const pad=90, barMaxW=120, rowH=26, startY=20;
+  const baseline=pad;
+
+  // Center line
+  ctx.strokeStyle='#1a3048';
+  ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(baseline,startY); ctx.lineTo(baseline,startY+items.length*rowH); ctx.stroke();
+
+  items.forEach((item,i) => {
+    const y=startY+i*rowH+rowH/2;
+    const bw=Math.abs(item.val)*barMaxW/0.5;
+    const col=item.pos?'rgba(45,156,219,0.85)':'rgba(235,87,87,0.85)';
+
+    ctx.fillStyle=col;
+    if(item.pos) ctx.fillRect(baseline, y-7, bw, 14);
+    else ctx.fillRect(baseline-bw, y-7, bw, 14);
+
+    // Label
+    ctx.fillStyle='#c8dce8';
+    ctx.font='8px IBM Plex Mono';
+    ctx.textAlign='right';
+    ctx.fillText(item.name, baseline-4, y+3);
+
+    // Value
+    ctx.fillStyle=item.pos?'#2d9cdb':'#eb5757';
+    ctx.textAlign='left';
+    ctx.fillText((item.pos?'+':'')+item.val.toFixed(2), baseline+(item.pos?bw+4:-(bw+30)), y+3);
+  });
+  ctx.textAlign='left';
+
+  // Legend
+  ctx.fillStyle='#2d9cdb'; ctx.font='7px IBM Plex Mono';
+  ctx.fillText('▌ Pushes toward high-grade', 4, H-14);
+  ctx.fillStyle='#eb5757';
+  ctx.fillText('▌ Pushes toward low-grade', 4, H-4);
+}
+
+// ══════════════ ROC & KM ══════════════
+function drawROC() {
+  const c=document.getElementById('rocCanvas');
+  const ctx=c.getContext('2d');
+  const W=260,H=220;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+
+  const pad=30;
+  const pw=W-pad-10, ph=H-pad-10;
+
+  // Grid
+  ctx.strokeStyle='#122030'; ctx.lineWidth=1;
+  [0,0.25,0.5,0.75,1].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(pad,pad+ph*(1-v)); ctx.lineTo(pad+pw,pad+ph*(1-v)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad+pw*v,pad); ctx.lineTo(pad+pw*v,pad+ph); ctx.stroke();
+    ctx.fillStyle='#3a5f78'; ctx.font='7px IBM Plex Mono';
+    ctx.fillText(v.toFixed(2), 2, pad+ph*(1-v)+3);
+    ctx.fillText(v.toFixed(1), pad+pw*v-5, pad+ph+12);
+  });
+
+  // Diagonal
+  ctx.strokeStyle='#1a3048'; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(pad,pad+ph); ctx.lineTo(pad+pw,pad); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ROC curves
+  const drawCurve = (auc, col, seed) => {
+    const r=seededRand(seed);
+    ctx.beginPath();
+    ctx.moveTo(pad, pad+ph);
+    let x=0,y=0;
+    const pts=[[0,0]];
+    for(let i=0;i<30;i++) {
+      x=Math.min(1,x+r()*0.08+0.01);
+      y=Math.min(1,y+r()*0.08*(auc*1.2)+0.02);
+      pts.push([x,y]);
+    }
+    pts.push([1,1]);
+    pts.sort((a,b)=>a[0]-b[0]);
+    pts.forEach(([px,py],i) => {
+      const sx=pad+px*pw, sy=pad+ph-py*ph;
+      i===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);
+    });
+    ctx.strokeStyle=col; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=col+'22';
+    ctx.lineTo(pad+pw,pad+ph); ctx.lineTo(pad,pad+ph); ctx.fill();
+  };
+
+  drawCurve(0.87,'#00c9b1',42);
+  drawCurve(0.79,'#9b51e0',17);
+  drawCurve(0.71,'#f2994a',99);
+
+  // Legend
+  [['\u2014 DL+Rad AUC=0.87','#00c9b1'],['\u2014 DL only  0.79','#9b51e0'],['\u2014 Rad only 0.71','#f2994a']].forEach(([t,col],i) => {
+    ctx.fillStyle=col; ctx.font='7px IBM Plex Mono';
+    ctx.fillText(t, pad+2, pad+ph-5-i*10);
+  });
+  ctx.fillStyle='#6a8fa8';
+  ctx.fillText('1-Specificity', pad+pw/2-20, H-2);
+}
+
+function drawKM() {
+  const c=document.getElementById('kmCanvas');
+  const ctx=c.getContext('2d');
+  const W=260,H=220;
+  c.width=W; c.height=H;
+  ctx.fillStyle='#08121c';
+  ctx.fillRect(0,0,W,H);
+
+  const pad=30;
+  const pw=W-pad-10, ph=H-pad-10;
+
+  // Grid
+  ctx.strokeStyle='#122030'; ctx.lineWidth=1;
+  [0,0.25,0.5,0.75,1].forEach(v => {
+    ctx.beginPath(); ctx.moveTo(pad,pad+ph*(1-v)); ctx.lineTo(pad+pw,pad+ph*(1-v)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad+pw*v,pad); ctx.lineTo(pad+pw*v,pad+ph); ctx.stroke();
+    ctx.fillStyle='#3a5f78'; ctx.font='7px IBM Plex Mono';
+    ctx.fillText((v*100).toFixed(0)+'%', 0, pad+ph*(1-v)+3);
+    ctx.fillText((v*36).toFixed(0)+'m', pad+pw*v-6, pad+ph+12);
+  });
+
+  // KM steps
+  const drawKM = (surv, col, seed) => {
+    const r=seededRand(seed);
+    ctx.strokeStyle=col; ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(pad, pad);
+    let t=0, s=1.0;
+    ctx.moveTo(pad,pad+ph*(1-s));
+    while(t<1) {
+      const dt=0.03+r()*0.04;
+      const ds=r()*0.06*(1-surv*0.3+0.2);
+      const nx=t+dt, ns=Math.max(0,s-ds);
+      // Horizontal step
+      ctx.lineTo(pad+nx*pw, pad+ph*(1-s));
+      // Vertical drop
+      ctx.lineTo(pad+nx*pw, pad+ph*(1-ns));
+      t=nx; s=ns;
+      if(s<=0||t>=1) break;
+    }
+    ctx.lineTo(pad+pw,pad+ph*(1-s));
+    ctx.stroke();
+    // Censoring ticks
+    for(let i=0;i<5;i++) {
+      const tx=pad+(0.1+i*0.17)*pw;
+      const ty=pad+ph*(1-(s+0.1+r()*0.2));
+      ctx.beginPath(); ctx.moveTo(tx,ty-4); ctx.lineTo(tx,ty+4);
+      ctx.strokeStyle=col; ctx.lineWidth=1; ctx.stroke();
+    }
+  };
+
+  drawKM(0.75,'#00c9b1',42);
+  drawKM(0.45,'#eb5757',17);
+
+  [['\u2014 Low risk (Score<0.5)','#00c9b1'],['\u2014 High risk (Score≥0.5)','#eb5757']].forEach(([t,col],i) => {
+    ctx.fillStyle=col; ctx.font='7px IBM Plex Mono';
+    ctx.fillText(t, pad+2, pad+10+i*10);
+  });
+  ctx.fillStyle='#6a8fa8';
+  ctx.fillText('Overall Survival', pad+pw/2-24, H-2);
+  ctx.fillStyle='#3a5f78';
+  ctx.fillText('p<0.001 (log-rank)', pad+2, pad+ph-4);
+}
+
+// ══════════════ MINIMAP + NOTES ══════════════
+const stageData = [
+  {
+    label:'1 · Imaging', col:'#38bdf8',
+    notes:[
+      {t:'DICOM Preprocessing',d:'Resampling to 1mm³ isotropic voxels; normalize intensity per modality.',col:'#38bdf8'},
+      {t:'HU Windowing',d:'Different tissue windows (lung: WC=-600 WW=1500, soft tissue: WC=40 WW=400).',col:'#2d9cdb'},
+      {t:'Multi-modal fusion',d:'CT for anatomy, PET for metabolic activity, T2-MRI for soft tissue contrast.',col:'#6fcf97'},
+    ]
+  },
+  {
+    label:'2 · Segmentation', col:'#00c9b1',
+    notes:[
+      {t:'3D U-Net',d:'Encoder-decoder with skip connections. Trained on annotated volumes.',col:'#00c9b1'},
+      {t:'Sensitivity to contours',d:'1mm variation in mask boundary can change radiomic features by 10-15%.',col:'#f2c94c'},
+      {t:'Inter-rater variability',d:'Deep learning reduces inter-rater variability vs manual contouring.',col:'#6fcf97'},
+    ]
+  },
+  {
+    label:'3 · DL Features', col:'#f2994a',
+    notes:[
+      {t:'Transfer learning',d:'ImageNet-pretrained weights fine-tuned on medical images. Or trained from scratch.',col:'#f2994a'},
+      {t:'Feature dimensionality',d:'Typical deep feature vector: 512–4096D from penultimate FC layer.',col:'#38bdf8'},
+      {t:'GradCAM',d:'Gradient-weighted Class Activation Maps localize which regions drive the model.',col:'#eb5757'},
+    ]
+  },
+  {
+    label:'4 · Radiomics', col:'#9b51e0',
+    notes:[
+      {t:'IBSI Compliance',d:'Features standardized per Image Biomarker Standardization Initiative.',col:'#9b51e0'},
+      {t:'Reproducibility',d:'ICC > 0.90 required. Features with poor ICC excluded before modeling.',col:'#f2994a'},
+      {t:'Dimensionality',d:'1,218 features → LASSO selection → ~30-80 stable predictors.',col:'#00c9b1'},
+    ]
+  },
+  {
+    label:'5 · Model', col:'#6fcf97',
+    notes:[
+      {t:'Regularization',d:'LASSO/Ridge/Elastic-net for high-dimensional, low-sample problems.',col:'#6fcf97'},
+      {t:'Cross-validation',d:'Nested CV for feature selection AND hyperparameter tuning to prevent leakage.',col:'#38bdf8'},
+      {t:'SHAP explanations',d:'SHapley values quantify each feature\'s contribution to each prediction.',col:'#f2994a'},
+    ]
+  },
+  {
+    label:'6 · Outcome', col:'#eb5757',
+    notes:[
+      {t:'External validation',d:'Internal CV inflates performance. Always validate on independent cohort.',col:'#eb5757'},
+      {t:'Calibration',d:'AUC alone insufficient — calibration curves assess probability accuracy.',col:'#f2c94c'},
+      {t:'Clinical utility',d:'Decision curve analysis measures net benefit over treat-all/none baselines.',col:'#6fcf97'},
+    ]
+  },
+];
+
+let activeStage=0;
+
+function buildMinimap() {
+  const mm=document.getElementById('minimap');
+  mm.innerHTML='';
+  stageData.forEach((s,i)=>{
+    if(i>0){
+      const conn=document.createElement('div');
+      conn.className='mm-connector';
+      mm.appendChild(conn);
+    }
+    const step=document.createElement('div');
+    step.className='mm-step'+(i===activeStage?' active':'');
+    step.innerHTML=`<div class="mm-dot" style="background:${s.col};color:${s.col}"></div><div class="mm-label">${s.label}</div>`;
+    step.onclick=()=>{
+      const tab=document.querySelectorAll('.stage-tab')[i];
+      goStage(i,tab);
+    };
+    mm.appendChild(step);
+  });
+}
+
+function buildNotes(idx) {
+  const nl=document.getElementById('stageNotes');
+  nl.innerHTML='';
+  stageData[idx].notes.forEach(n=>{
+    const row=document.createElement('div');
+    row.className='info-row';
+    row.innerHTML=`<div class="info-dot" style="background:${n.col}"></div><div><div class="info-title">${n.t}</div><div class="info-desc">${n.d}</div></div>`;
+    nl.appendChild(row);
+  });
+}
+
+// ══════════════ STAGE SWITCHING ══════════════
+function goStage(idx, tabEl) {
+  activeStage=idx;
+  document.querySelectorAll('.stage-panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+  document.querySelectorAll('.stage-tab').forEach(t=>t.classList.remove('active'));
+  if(tabEl) tabEl.classList.add('active');
+  buildMinimap();
+  buildNotes(idx);
+}
+
+// ══════════════ INIT ══════════════
+window.addEventListener('load', () => {
+  drawCTPanels();
+  drawImageThumbs();
+  drawSegmentation();
+  drawDLFmaps();
+  drawDLHeatmap();
+  drawTSNE();
+  drawRadar();
+  drawCorrMatrix();
+  buildFeatureTable();
+  buildModelArch();
+  drawSHAP();
+  drawROC();
+  drawKM();
+  buildMinimap();
+  buildNotes(0);
+});
+</script>
+</body>
+</html>
